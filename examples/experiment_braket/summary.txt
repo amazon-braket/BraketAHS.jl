@@ -1,0 +1,1 @@
+time: 160.966183157, n_atoms: 25, Trotter steps: 400, interaction_R: 7.0e-6, MPS cutoff: 1.0e-7, max_bond_dim: 16, total truncation err: 0.0
