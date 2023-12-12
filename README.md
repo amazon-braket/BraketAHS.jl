@@ -1,15 +1,16 @@
 # tensor-network-ahs
 
 This package implements a tensor network based algorithm for simulating Rydberg atom dynamics.
-The package allows to simulate Analog Hamiltonian Simulation programs for problem sizes of hundreds of atoms, which is unaccessible by statevector simulation methods.
+It allows to simulate Analog Hamiltonian Simulation programs for problem sizes of hundreds of atoms, which is unaccessible by statevector simulation methods.
 Matrix Product States (MPS) are used to represent the many-body quantum state.
+
+The core of the tensor network simulation is enabled by [iTensor.jl](https://github.com/ITensor/ITensors.jl). The input Analog Hamiltonian Simulation (AHS) program can be constructed using [Braket.jl](https://github.com/amazon-braket/Braket.jl) interface.
 
 ## Introduction
 
 We use Time Evolving Block Decimation (TEBD) algorithm to compute state updates for each time step.
 After each TEBD step the quantum state is truncated based on the SVD decomposition of the matrix product state. 
-
-We use second order Suzuki-Trotter product formula for improved simulation accuracy.
+The second order Suzuki-Trotter product formula is used for improved simulation accuracy.
 
 A step of TEBD evolution acting on a matrix product state is pictorially shown below.
 
