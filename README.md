@@ -66,7 +66,10 @@ Example .json config files are provided in `examples/ahs_program*.json`.
 * `--n-tau-steps`: total number of Trotter steps. The total evolution time is `tau*n-tau-steps`. Default value is `n-tau-steps=400`, corresponds to total evolution time `4 microseconds`.
 * `--C6`: Rydberg interaction C6 constant, default value is `C6=5.42e-24` (CI units).
 * `--compute-truncation-error`: computes MPS truncation error for each time step and saves truncation error evolution in `<experiment_path>/error_log.txt`. Use with CAUTION, since enabling this option dramatically slows down runtime (requires calculation of exact MPS evolution for each time step).
+* `--compute-correlators`: compute <Z_i Z_j> correlators at the end of the evolution.
+* `--compute-energies`: compute energies from samples at the end of the evolution. 
 * `--generate-plots`: generate plots after experiment is finished
+
 
 ### MPS-results
 
