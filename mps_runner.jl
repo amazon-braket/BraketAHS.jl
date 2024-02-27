@@ -68,7 +68,7 @@ function parse_commandline()
     return parse_args(s)
 end
 
-function run(parsed_args)
+function run(ahs_json, parsed_args)
 
     experiment_path = parsed_args["experiment-path"]
     τ = parsed_args["tau"]
@@ -76,8 +76,7 @@ function run(parsed_args)
     C6 = parsed_args["C6"]
     interaction_R = parsed_args["interaction-radius"]
     n_shots = parsed_args["shots"]    
-    Vij, protocol, N = parse_ahs_program(parsed_args)
-        
+    Vij, protocol, N = parse_ahs_program(ahs_json, parsed_args)
 
     @info "Preparing initial ψ MPS"
     s = siteinds("S=1/2", N; conserve_qns=false)
@@ -156,16 +155,22 @@ function run(parsed_args)
     return results
 end
 
-parsed_args = parse_commandline()
+args = parse_commandline()
 @info "Parsed command line arguments:"
-for (k,v) in parsed_args
+for (k,v) in args
     @info "\t$k: $v"
 end
-experiment_path = parsed_args["experiment-path"]
+experiment_path = args["experiment-path"]
+program_path    = args["program-path"]
 
-results = run(parsed_args)
+@info "JSON file to read: $program_path"
+ahs_json = JSON.parsefile(program_path)
 
+results = run(ahs_json, args)
+
+@info "Saving results"
 save_results(results, experiment_path)
+
 @info "Generating plots"
 if parsed_args["generate-plots"]
     @info "Plotting results from $experiment_path"

@@ -71,26 +71,3 @@ open(file_path, "w") do file
     JSON.print(file, json_obj, 4)  # The '4' here is for pretty printing with an indent of 4 spaces
 end
 
-
-function get_atom_coordinates(lattice_sites, node_removal_prob)
-    """ Generate atom positions for square lattice
-    """
-    # set random seed
-    Random.seed!(1)
-    # generate atom coords based on the lattice    
-    N = length(lattice_sites)
-
-    pruned_atom_coordinates = []
-    filling = []
-    for idx in 1:N
-        if rand() > node_removal_prob
-            push!(pruned_atom_coordinates, lattice_sites[idx])
-            fill = 1
-        else
-            fill = 0
-        end
-        push!(filling, fill)
-    end        
-    return pruned_atom_coordinates, filling
-end
-

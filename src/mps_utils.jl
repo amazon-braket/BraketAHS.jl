@@ -170,19 +170,16 @@ Returns prepared experiment protocol `protocol` as a `NamedTuple` with keys
 `(:time_steps, :rabi_driving, :global_detuning, :local_detuning, :pattern)`.
 `Vij` is the generated inter-atomic potential, and `N` is the total number of atoms.
 """
-function parse_ahs_program(parsed_args::Dict{String, Any})
-    program_path = parsed_args["program-path"]
-    experiment_path = parsed_args["experiment-path"]
-    τ = parsed_args["tau"]
-    n_τ_steps = parsed_args["n-tau-steps"]
-    interaction_R = parsed_args["interaction-radius"]
-    C6 = parsed_args["C6"]
-    @info "JSON file to read: $program_path"
-    ahs_program = JSON.parsefile(program_path)
-    @debug "AHS program: $ahs_program"
+function parse_ahs_program(ahs_json, args::Dict{String, Any})
+    program_path = args["program-path"]
+    experiment_path = args["experiment-path"]
+    τ = args["tau"]
+    n_τ_steps = args["n-tau-steps"]
+    interaction_R = args["interaction-radius"]
+    C6 = args["C6"]
 
     # Read atom coords and fillings
-    atom_coordinates, filling = get_atom_coordinates(ahs_program)
+    atom_coordinates, filling = get_atom_coordinates(ahs_json)
     N = length(atom_coordinates)
 
     if !isdir(experiment_path)
@@ -193,7 +190,7 @@ function parse_ahs_program(parsed_args::Dict{String, Any})
     end
     
     # Serialize the data to a JSON-formatted string, write the JSON string to the file
-    write(joinpath(experiment_path, "ahs_program.json"), JSON.json(ahs_program))
+    write(joinpath(experiment_path, "ahs_program.json"), JSON.json(ahs_json))
     # Write filling data to CSV file
     CSV.write(joinpath(experiment_path, "filling.csv"), DataFrame(filling', :auto))
 
@@ -202,7 +199,7 @@ function parse_ahs_program(parsed_args::Dict{String, Any})
     @debug "Atoms in atom array: $atom_coordinates"
 
     Vij = get_Vij(atom_coordinates, N, interaction_R, C6)
-    protocol = parse_protocol(ahs_program, τ, n_τ_steps)
+    protocol = parse_protocol(ahs_json, τ, n_τ_steps)
     return Vij, protocol, N
 end
 
