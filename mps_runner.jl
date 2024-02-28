@@ -55,10 +55,12 @@ function parse_commandline()
             help = "C6 constant for van der Waals interaction between atoms in Rydberg state (Hz*m^6)"
             arg_type = Float64
             default = 5.42e-24
-        "--dim"
-            help = "Dimension of lattice -- 1D or 2D"
-            arg_type = Int
-            default = 2
+        "--compute-correlators"
+            help = "Compute ZZ correlators at the end of the evolution (t=T)"
+            action = :store_true
+        "--compute-energies"
+            help = "Compute energies from samples at the end of the evolution (t=T)"
+            action = :store_true            
         "--generate-plots"
             help = "Generate plots after experiment is finished"
             action = :store_true
@@ -66,55 +68,113 @@ function parse_commandline()
     return parse_args(s)
 end
 
+function run(ahs_json, args)
 
+    experiment_path = args["experiment-path"]
+    τ = args["tau"]
+    n_τ_steps = args["n-tau-steps"]
+    C6 = args["C6"]
+    interaction_R = args["interaction-radius"]
+    n_shots = args["shots"]    
+    Vij, protocol, N = parse_ahs_program(ahs_json, args)
 
-parsed_args = parse_commandline()
+    @info "Preparing initial ψ MPS"
+    s = siteinds("S=1/2", N; conserve_qns=false)
+
+    # Initialize ψ to be a product state: Down state (Ground state)
+    ψ = MPS(s, n -> "Dn")
+    @info "Generating Trotterized circuit"
+    circuit = get_trotterized_circuit_2d(s, τ, n_τ_steps, N, Vij, protocol)
+
+    max_bond_dim = args["max-bond-dim"]
+    cutoff = args["cutoff"]
+    compute_truncation_error = args["compute-truncation-error"]
+
+    @info "Starting MPS evolution"
+    res = @timed begin
+        density, err_array, ψ = compute_MPS_evolution(ψ, circuit, max_bond_dim, cutoff, compute_truncation_error=compute_truncation_error)
+    end
+    summary_array = ["time: $(res.time)",
+                    "n_atoms: $N",
+                    "Trotter steps: $n_τ_steps",
+                    "interaction_R: $interaction_R",
+                    "MPS cutoff: $cutoff",
+                    "max_bond_dim: $max_bond_dim",
+                    "total truncation err: $(sum(err_array))"]
+    summary_string = join(summary_array, ", ")
+    write(joinpath(experiment_path, "summary.txt"), summary_string)
+
+    @info "Simulation complete. Elapsed time and memory used: $(res.time)."
+    @info "Number of atoms: $N, MPS cutoff: $cutoff, max_bond_dim: $max_bond_dim, Trotter steps: $n_τ_steps"
+
+    # Bitstring samples
+    @info "Sampling from final MPS state"
+    samples = Matrix{Int}(undef, N, n_shots)
+    for shot in 1:n_shots
+        sample_i = sample!(ψ) # Sampling bitstrings from a final psi(T)
+        # iTensor MPS sample outputs values [1, 2] for 2-level system
+        # Converting [1,2] -> [0,1]
+        @views samples[:, shot] = [(2 - x) for x in sample_i]
+    end
+
+    # Correlation matrix 
+    correlator_zz = []
+
+    if args["compute-correlators"]
+        @info "Evaluating correlation function ..."
+        correlator_zz = 4 .* correlation_matrix(ψ, "Sz", "Sz") # renormalize to [-1, 1] range
+    end    
+
+    # Energies at t=T
+    energies = []
+    
+    if args["compute-energies"]
+        @info "Evaluating energies at t=T ..."
+
+        Δ_glob_ts = protocol[:global_detuning]
+        Δ_loc_ts = protocol[:local_detuning]
+        pattern = protocol[:pattern]
+    
+        energies = compute_energies(samples', Vij, Δ_glob_ts, Δ_loc_ts, pattern)
+    end    
+
+    results = Dict(
+        "samples" => samples,
+        "density" => density,
+        "summary" => summary_array
+    )
+
+    if args["compute-energies"]
+        results["energies"] = energies
+    end
+
+    if args["compute-correlators"]
+        results["correlator_zz"] = correlator_zz
+    end    
+
+    return results
+end
+
+args = parse_commandline()
 @info "Parsed command line arguments:"
-for (k,v) in parsed_args
+for (k,v) in args
     @info "\t$k: $v"
 end
-experiment_path = parsed_args["experiment-path"]
-τ = parsed_args["tau"]
-n_τ_steps = parsed_args["n-tau-steps"]
-C6 = parsed_args["C6"]
-interaction_R = parsed_args["interaction-radius"]
-Vij, protocol, N = parse_ahs_program(parsed_args)
 
-@info "Preparing initial ψ MPS"
-s = siteinds("S=1/2", N; conserve_qns=false)
+experiment_path = args["experiment-path"]
+program_path    = args["program-path"]
 
-# Initialize ψ to be a product state: Down state (Ground state)
-ψ = MPS(s, n -> "Dn")
-@info "Generating Trotterized circuit"
-circuit = get_trotterized_circuit_2d(s, τ, n_τ_steps, N, Vij, protocol)
+@info "JSON file to read: $program_path"
+ahs_json = JSON.parsefile(program_path)
 
-max_bond_dim = parsed_args["max-bond-dim"]
-cutoff = parsed_args["cutoff"]
-compute_truncation_error = parsed_args["compute-truncation-error"]
+results = run(ahs_json, args)
 
-@info "Starting MPS evolution"
-res = @timed begin
-    meas_array, err_array, ψ = compute_MPS_evolution(ψ, circuit, max_bond_dim, cutoff, compute_truncation_error=compute_truncation_error)
-end
-summary_array = ["time: $(res.time)",
-                  "n_atoms: $N",
-                  "Trotter steps: $n_τ_steps",
-                  "interaction_R: $interaction_R",
-                  "MPS cutoff: $cutoff",
-                  "max_bond_dim: $max_bond_dim",
-                  "total truncation err: $(sum(err_array))"]
-summary_string = join(summary_array, ", ")
-write(joinpath(experiment_path, "summary.txt"), summary_string)
+@info "Saving results"
+save_results(results, experiment_path)
 
-@info "Elapsed time and memory used: $(res.time)."
-@info "Number of atoms: $N, MPS cutoff: $cutoff, max_bond_dim: $max_bond_dim, Trotter steps: $n_τ_steps"
-@info "Computing final correlation functions and saving results."
-
-save_results(experiment_path, ψ, meas_array, parsed_args["shots"], Vij, protocol)
-@info "Simulation complete."
-
-if parsed_args["generate-plots"]
+@info "Generating plots"
+if args["generate-plots"]
     @info "Plotting results from $experiment_path"
     plot_all(experiment_path)
     @info "Plotting complete."
-end    
+end
