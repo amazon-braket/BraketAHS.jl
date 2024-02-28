@@ -114,8 +114,7 @@ function run(ahs_json, args)
         sample_i = sample!(ψ) # Sampling bitstrings from a final psi(T)
         # iTensor MPS sample outputs values [1, 2] for 2-level system
         # Converting [1,2] -> [0,1]
-        samples[:, shot] = broadcast(x -> 2 - x, sample_i)
-
+        samples[:, shot] = @views [(2 - x) for x in sample_i]
     end
 
     # Correlation matrix 
