@@ -68,15 +68,15 @@ function parse_commandline()
     return parse_args(s)
 end
 
-function run(ahs_json, parsed_args)
+function run(ahs_json, args)
 
-    experiment_path = parsed_args["experiment-path"]
-    τ = parsed_args["tau"]
-    n_τ_steps = parsed_args["n-tau-steps"]
-    C6 = parsed_args["C6"]
-    interaction_R = parsed_args["interaction-radius"]
-    n_shots = parsed_args["shots"]    
-    Vij, protocol, N = parse_ahs_program(ahs_json, parsed_args)
+    experiment_path = args["experiment-path"]
+    τ = args["tau"]
+    n_τ_steps = args["n-tau-steps"]
+    C6 = args["C6"]
+    interaction_R = args["interaction-radius"]
+    n_shots = args["shots"]    
+    Vij, protocol, N = parse_ahs_program(ahs_json, args)
 
     @info "Preparing initial ψ MPS"
     s = siteinds("S=1/2", N; conserve_qns=false)
@@ -86,9 +86,9 @@ function run(ahs_json, parsed_args)
     @info "Generating Trotterized circuit"
     circuit = get_trotterized_circuit_2d(s, τ, n_τ_steps, N, Vij, protocol)
 
-    max_bond_dim = parsed_args["max-bond-dim"]
-    cutoff = parsed_args["cutoff"]
-    compute_truncation_error = parsed_args["compute-truncation-error"]
+    max_bond_dim = args["max-bond-dim"]
+    cutoff = args["cutoff"]
+    compute_truncation_error = args["compute-truncation-error"]
 
     @info "Starting MPS evolution"
     res = @timed begin
@@ -114,13 +114,14 @@ function run(ahs_json, parsed_args)
         sample_i = sample!(ψ) # Sampling bitstrings from a final psi(T)
         # iTensor MPS sample outputs values [1, 2] for 2-level system
         # Converting [1,2] -> [0,1]
-        samples[:, shot] = [(2 - val) for val in sample_i]
+        samples[:, shot] = broadcast(x -> 2 - x, sample_i)
+
     end
 
     # Correlation matrix 
     correlator_zz = []
 
-    if parsed_args["compute-correlators"]
+    if args["compute-correlators"]
         @info "Evaluating correlation function ..."
         correlator_zz = 4 .* correlation_matrix(ψ, "Sz", "Sz") # renormalize to [-1, 1] range
     end    
@@ -128,7 +129,7 @@ function run(ahs_json, parsed_args)
     # Energies at t=T
     energies = []
     
-    if parsed_args["compute-energies"]
+    if args["compute-energies"]
         @info "Evaluating energies at t=T ..."
 
         Δ_glob_ts = protocol[:global_detuning]
@@ -144,11 +145,11 @@ function run(ahs_json, parsed_args)
         "summary" => summary_array
     )
 
-    if parsed_args["compute-energies"]
+    if args["compute-energies"]
         results["energies"] = energies
     end
 
-    if parsed_args["compute-correlators"]
+    if args["compute-correlators"]
         results["correlator_zz"] = correlator_zz
     end    
 
@@ -160,6 +161,7 @@ args = parse_commandline()
 for (k,v) in args
     @info "\t$k: $v"
 end
+
 experiment_path = args["experiment-path"]
 program_path    = args["program-path"]
 
@@ -172,7 +174,7 @@ results = run(ahs_json, args)
 save_results(results, experiment_path)
 
 @info "Generating plots"
-if parsed_args["generate-plots"]
+if args["generate-plots"]
     @info "Plotting results from $experiment_path"
     plot_all(experiment_path)
     @info "Plotting complete."
