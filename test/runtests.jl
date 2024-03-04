@@ -31,6 +31,6 @@ using JSON, JSON3
 
     mps_density = result["density"][:, end]
     expected_density = [0.49558400861051327,0.4955839949350386,0.49558370707943783,0.49558323080865946]
-    @test mps_density == expected_density
+    @test isapprox(mps_density, expected_density; atol=1e-7)
     # add apprx cmoparison isapprox(array1, array2; atol=tolerance)
 end
