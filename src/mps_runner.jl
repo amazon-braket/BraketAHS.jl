@@ -13,13 +13,14 @@ using JSON
 include("mps_utils.jl")
 include("plotter.jl")
 
+
 function parse_commandline()
     s = ArgParseSettings()
     @add_arg_table! s begin
         "--program-path"
             help = "the path to the AHS program JSON file"
             arg_type = String
-            default = joinpath("examples", "ahs_program.json")
+            default = joinpath(@__DIR__, "../examples", "ahs_program.json")
         "--interaction-radius"
             help = "the interaction radius in meters"
             arg_type = Float64
