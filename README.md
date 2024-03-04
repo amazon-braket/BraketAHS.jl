@@ -30,7 +30,7 @@ julia --project=. -e 'using Pkg; Pkg.instantiate()'
 ### Running MPS-based simulation
 1. To run the Braket-AHS program saved as a .json file run:
 ```
-julia mps_runner.jl --program-path=<path_to_ahs.json>
+julia src/mps_runner.jl --program-path=<path_to_ahs.json>
 ```
 
 In order to generate .json configuration file there are 2 options:
@@ -54,7 +54,7 @@ with open(filename, "w") as json_file:
 Example .json config files are provided in `examples/ahs_program*.json`.
 
 #### The required input argument is: 
-* `--program-path`: specifies the path to AHS program .json file (example file is provided `./ahs_program.json`)
+* `--program-path`: specifies the path to AHS program .json file (example file is provided `examples/ahs_program.json`)
 
 #### The optional arguments are:
 * `--experiment-path`: directory where all experiment results are saved (default is `examples/experiment_braket`). 
@@ -86,6 +86,6 @@ Output files from MPS simulaiton are stored in `<experiment_path>`:
 
 To run visualization script run:
 ```
-julia plotter.jl <path_to_experiment_results>
+julia src/plotter.jl <path_to_experiment_results>
 ```
 It will generate plots from the .csv files saved in <path_to_experiment_results>.

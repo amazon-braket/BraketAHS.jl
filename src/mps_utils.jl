@@ -6,7 +6,6 @@ using CSV, DataFrames
 using Dates
 using Base.Filesystem
 using Missings
-using PythonCall
 using Random
 using JSON
 
@@ -238,16 +237,104 @@ function compute_MPS_evolution(ψ::MPS, circuit::Vector{Vector{ITensor}}, max_bo
         meas_array[:, i_τ] = 0.5 .+ Sz
         # Evolution step: psi update
         ψ_prev = ψ
-        ψ = apply(circuit[i_τ], ψ; cutoff=cutoff, maxdim=max_bond_dim)
+        ψ = ITensors.apply(circuit[i_τ], ψ; cutoff=cutoff, maxdim=max_bond_dim)
         normalize!(ψ)
         if compute_truncation_error
-            ψ_exact = apply(circuit[i_τ], ψ_prev; cutoff=1e-16)
+            ψ_exact = ITensors.apply(circuit[i_τ], ψ_prev; cutoff=1e-16)
             err_array[i_τ] = 1.0 - abs(inner(ψ_exact, ψ))
         end            
         @info "Step: $i_τ, current MPS bond dimension is $(maxlinkdim(ψ))"         
     end
     return meas_array, err_array, ψ    
 end
+
+function run(ahs_json, args)
+
+    experiment_path = args["experiment-path"]
+    τ = args["tau"]
+    n_τ_steps = args["n-tau-steps"]
+    C6 = args["C6"]
+    interaction_R = args["interaction-radius"]
+    n_shots = args["shots"]    
+    Vij, protocol, N = parse_ahs_program(ahs_json, args)
+
+    @info "Preparing initial ψ MPS"
+    s = siteinds("S=1/2", N; conserve_qns=false)
+
+    # Initialize ψ to be a product state: Down state (Ground state)
+    ψ = MPS(s, n -> "Dn")
+    @info "Generating Trotterized circuit"
+    circuit = get_trotterized_circuit_2d(s, τ, n_τ_steps, N, Vij, protocol)
+
+    max_bond_dim = args["max-bond-dim"]
+    cutoff = args["cutoff"]
+    compute_truncation_error = args["compute-truncation-error"]
+
+    @info "Starting MPS evolution"
+    res = @timed begin
+        density, err_array, ψ = compute_MPS_evolution(ψ, circuit, max_bond_dim, cutoff, compute_truncation_error=compute_truncation_error)
+    end
+    summary_array = ["time: $(res.time)",
+                    "n_atoms: $N",
+                    "Trotter steps: $n_τ_steps",
+                    "interaction_R: $interaction_R",
+                    "MPS cutoff: $cutoff",
+                    "max_bond_dim: $max_bond_dim",
+                    "total truncation err: $(sum(err_array))"]
+    summary_string = join(summary_array, ", ")
+    write(joinpath(experiment_path, "summary.txt"), summary_string)
+
+    @info "Simulation complete. Elapsed time and memory used: $(res.time)."
+    @info "Number of atoms: $N, MPS cutoff: $cutoff, max_bond_dim: $max_bond_dim, Trotter steps: $n_τ_steps"
+
+    # Bitstring samples
+    @info "Sampling from final MPS state"
+    samples = Matrix{Int}(undef, N, n_shots)
+    for shot in 1:n_shots
+        sample_i = sample!(ψ) # Sampling bitstrings from a final psi(T)
+        # iTensor MPS sample outputs values [1, 2] for 2-level system
+        # Converting [1,2] -> [0,1]
+        @views samples[:, shot] = [(2 - x) for x in sample_i]
+    end
+
+    # Correlation matrix 
+    correlator_zz = []
+
+    if args["compute-correlators"]
+        @info "Evaluating correlation function ..."
+        correlator_zz = 4 .* correlation_matrix(ψ, "Sz", "Sz") # renormalize to [-1, 1] range
+    end    
+
+    # Energies at t=T
+    energies = []
+    
+    if args["compute-energies"]
+        @info "Evaluating energies at t=T ..."
+
+        Δ_glob_ts = protocol[:global_detuning]
+        Δ_loc_ts = protocol[:local_detuning]
+        pattern = protocol[:pattern]
+    
+        energies = compute_energies(samples', Vij, Δ_glob_ts, Δ_loc_ts, pattern)
+    end    
+
+    results = Dict(
+        "samples" => samples,
+        "density" => density,
+        "summary" => summary_array
+    )
+
+    if args["compute-energies"]
+        results["energies"] = energies
+    end
+
+    if args["compute-correlators"]
+        results["correlator_zz"] = correlator_zz
+    end    
+
+    return results
+end
+
 
 """
     save_results(experiment_path::String,
