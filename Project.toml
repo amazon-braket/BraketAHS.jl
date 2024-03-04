@@ -26,7 +26,7 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
 
 [compat]
-ArgParse = "1.0"
+ArgParse = "=1.1.5"
 CSV = "=0.10.12"
 DataFrames = "1.6"
 Plots = "1.30"
