@@ -66,13 +66,13 @@ end
 
 
 json_str = JSON3.write(ir(ahs_program))
-json_obj = JSON.parse(json_str)
+json_obj = JSON3.read(json_str)
 
 # Define the file path
 file_path = "examples/ahs_program.json"
 
 # Write the JSON object to a file
 open(file_path, "w") do file
-    JSON.print(file, json_obj, 4)  # The '4' here is for pretty printing with an indent of 4 spaces
+    JSON3.write(file, json_obj)  # The '4' here is for pretty printing with an indent of 4 spaces
 end
 

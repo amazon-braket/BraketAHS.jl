@@ -8,7 +8,7 @@ using Dates
 using Missings
 using Random
 using Logging
-using JSON
+using JSON3
 
 include("mps_utils.jl")
 include("plotter.jl")
@@ -81,7 +81,7 @@ experiment_path = args["experiment-path"]
 program_path    = args["program-path"]
 
 @info "JSON file to read: $program_path"
-ahs_json = JSON.parsefile(program_path)
+ahs_json = JSON3.read(read(program_path, String), Dict{String, Any})
 
 results = run(ahs_json, args)
 

@@ -7,7 +7,7 @@ using Dates
 using Base.Filesystem
 using Missings
 using Random
-using JSON
+using JSON3
 
 
 """
@@ -189,7 +189,7 @@ function parse_ahs_program(ahs_json, args::Dict{String, Any})
     end
     
     # Serialize the data to a JSON-formatted string, write the JSON string to the file
-    write(joinpath(experiment_path, "ahs_program.json"), JSON.json(ahs_json))
+    write(joinpath(experiment_path, "ahs_program.json"), JSON3.read(ahs_json))
     # Write filling data to CSV file
     CSV.write(joinpath(experiment_path, "filling.csv"), DataFrame(filling', :auto))
 
