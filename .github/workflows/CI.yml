@@ -73,28 +73,6 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: lcov.info
-    steps:
-      - uses: actions/checkout@v1
-      - name: "Set up Julia"
-        uses: julia-actions/setup-julia@v1
-        with:
-          version: ${{ matrix.version }}
-          arch: ${{ matrix.arch }}
-      - uses: julia-actions/julia-buildpkg@latest
-      - run: |
-          git config --global user.name Tester
-          git config --global user.email te@st.er
-      - name: "Run tests"
-        uses: julia-actions/julia-runtest@v1
-      - name: "Process coverage"
-        uses: julia-actions/julia-processcoverage@v1
-        with:
-          directories: src
-      - name: "Upload coverage"
-        uses: codecov/codecov-action@v2
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: lcov.info
   docs:
     name: Documentation
     runs-on: ubuntu-latest
