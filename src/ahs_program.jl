@@ -13,21 +13,18 @@ using Markdown
 using InteractiveUtils
 
 using Braket
-using Braket: AtomArrangement, AtomArrangementItem, TimeSeries, DrivingField, AwsDevice, AnalogHamiltonianSimulation, discretize, AnalogHamiltonianSimulationQuantumTaskResult
+using Braket: AtomArrangement, AtomArrangementItem, TimeSeries, DrivingField, Pattern
 using DataStructures, Statistics, Plots
 
 begin
 	a = 5.5e-6	
 	register = AtomArrangement()
-	push!(register, AtomArrangementItem((0.5, 0.5 + 1/√2) .* a))
-	push!(register, AtomArrangementItem((0.5 + 1/√2, 0.5) .* a))
-	push!(register, AtomArrangementItem((0.5 + 1/√2, -0.5) .* a))
-	push!(register, AtomArrangementItem((0.5, -0.5 - 1/√2) .* a))
-	push!(register, AtomArrangementItem((-0.5, -0.5 - 1/√2) .* a))
-	push!(register, AtomArrangementItem((-0.5 -1/√2, -0.5) .* a))
-	push!(register, AtomArrangementItem((-0.5 -1/√2, 0.5) .* a))
-	push!(register, AtomArrangementItem((-0.5, 0.5 + 1/√2) .* a))
+	push!(register, AtomArrangementItem((0., 0.) .* a))
+	push!(register, AtomArrangementItem((1., 0.) .* a))
+	push!(register, AtomArrangementItem((0., 1.) .* a))
+	push!(register, AtomArrangementItem((1., 1.) .* a))
 end
+
 
 
 begin
@@ -48,15 +45,23 @@ begin
 	Δ[time_ramp]            = Δ_start
 	Δ[time_max - time_ramp] = Δ_end
 	Δ[time_max]             = Δ_end
-	
+
+	Δ_loc                   = TimeSeries()
+	Δ_loc[0.0]              = 0.
+	Δ_loc[time_max]             	= 0.
+
 	ϕ           = TimeSeries()
 	ϕ[0.0]      = 0.0
 	ϕ[time_max] = 0.0
 end
 
 begin
-	drive                   = DrivingField(Ω, ϕ, Δ)
-	ahs_program             = AnalogHamiltonianSimulation(register, drive)
+	drive = DrivingField(Ω, ϕ, Δ)
+
+	pt = Pattern([0. for i in 1:length(register)])
+	shift = ShiftingField(Field(Δ_loc, pt))
+
+	ahs_program = AnalogHamiltonianSimulation(register, [drive, shift])
 end
 
 
@@ -64,7 +69,7 @@ json_str = JSON3.write(ir(ahs_program))
 json_obj = JSON.parse(json_str)
 
 # Define the file path
-file_path = "../examples/ahs_program.json"
+file_path = "examples/ahs_program.json"
 
 # Write the JSON object to a file
 open(file_path, "w") do file

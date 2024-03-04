@@ -1,0 +1,116 @@
+name: CI
+# Run on main, any tag or any pull request
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+    tags: '*'
+
+concurrency:
+  # cancel in progress builds for pull requests
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ startswith(github.ref, 'refs/pull/') }}
+
+jobs:
+  os-test:
+    runs-on: ${{ matrix.os }}
+    # don't run on draft PRs
+    if: ${{ github.event_name == 'push' || !github.event.pull_request.draft }}
+    # allow windows to fail
+    strategy:
+      fail-fast: true
+      max-parallel: 2
+      matrix:
+        os: [macOS-latest]
+        arch: ['x64']
+    steps:
+      - uses: actions/checkout@v1
+      - name: "Set up Julia"
+        uses: julia-actions/setup-julia@v1
+        with:
+          version: 1.9
+          arch: ${{ matrix.arch }}
+      - uses: julia-actions/julia-buildpkg@latest
+      - run: |
+          git config --global user.name Tester
+          git config --global user.email te@st.er
+      - name: "Run tests"
+        uses: julia-actions/julia-runtest@v1
+  version-test:
+    runs-on: ubuntu-latest 
+    # don't run on draft PRs
+    if: ${{ github.event_name == 'push' || !github.event.pull_request.draft }}
+    # allow failures on nightly or beta Julia
+    continue-on-error: ${{ matrix.version == 'nightly'}}
+    strategy:
+      fail-fast: true
+      max-parallel: 2
+      matrix:
+        version: ['1.9', '1.10', 'nightly']
+        arch: ['x64']
+    steps:
+      - uses: actions/checkout@v1
+      - name: "Set up Julia"
+        uses: julia-actions/setup-julia@v1
+        with:
+          version: ${{ matrix.version }}
+          arch: ${{ matrix.arch }}
+      - uses: julia-actions/julia-buildpkg@latest
+      - run: |
+          git config --global user.name Tester
+          git config --global user.email te@st.er
+      - name: "Run tests"
+        uses: julia-actions/julia-runtest@v1
+      - name: "Process coverage"
+        uses: julia-actions/julia-processcoverage@v1
+        with:
+          directories: src
+      - name: "Upload coverage"
+        uses: codecov/codecov-action@v2
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: lcov.info
+    steps:
+      - uses: actions/checkout@v1
+      - name: "Set up Julia"
+        uses: julia-actions/setup-julia@v1
+        with:
+          version: ${{ matrix.version }}
+          arch: ${{ matrix.arch }}
+      - uses: julia-actions/julia-buildpkg@latest
+      - run: |
+          git config --global user.name Tester
+          git config --global user.email te@st.er
+      - name: "Run tests"
+        uses: julia-actions/julia-runtest@v1
+      - name: "Process coverage"
+        uses: julia-actions/julia-processcoverage@v1
+        with:
+          directories: src
+      - name: "Upload coverage"
+        uses: codecov/codecov-action@v2
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: lcov.info
+  docs:
+    name: Documentation
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' || !github.event.pull_request.draft }}
+    needs: [os-test, version-test]
+    steps:
+      - uses: actions/checkout@v2
+      - uses: julia-actions/setup-julia@v1
+        with:
+          version: '1'
+      - run: |
+          julia --project=docs -e '
+            using Pkg
+            Pkg.develop(PackageSpec(path=pwd()))
+            Pkg.instantiate()
+            include("docs/make.jl")'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
