@@ -25,8 +25,6 @@ using JSON3
         "generate-plots" => false
     )
 
-    @show ahs_json
-
     result = run(ahs_json, args)
 
     mps_density = result["density"][:, end]
