@@ -71,6 +71,7 @@ json_obj = JSON3.read(json_str)
 # Define the file path
 file_path = joinpath(dirname(@__DIR__), "examples", "ahs_program_default.json")
 
+
 # Write the JSON object to a file
 open(file_path, "w") do file
     JSON3.write(file, json_obj)  # The '4' here is for pretty printing with an indent of 4 spaces
