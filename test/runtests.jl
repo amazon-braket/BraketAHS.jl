@@ -1,13 +1,13 @@
 using BraketAHS: run, save_results
 using Test
-using JSON, JSON3
+using JSON3
 
 @testset "BraketAHS.jl" begin
     # Write your tests here.
 
     json_str = """{"setup":{"ahs_register":{"sites":[["0.0","0.0"],["5.499999999999999856993733449161965e-6","0.0"],["0.0","5.499999999999999856993733449161965e-6"],["5.499999999999999856993733449161965e-6","5.499999999999999856993733449161965e-6"]],"filling":[1,1,1,1]}},"braketSchemaHeader":{"name":"braket.ir.ahs.program","version":"1"},"hamiltonian":{"shiftingFields":[{"magnitude":{"pattern":["0.0","0.0","0.0","0.0"],"time_series":{"values":["0.0","0.0"],"times":["0.0","3.999999999999999818992447303545035e-6"]}}}],"drivingFields":[{"phase":{"pattern":"uniform","time_series":{"values":["0.0","0.0"],"times":["0.0","3.999999999999999818992447303545035e-6"]}},"detuning":{"pattern":"uniform","time_series":{"values":["-3.15e7","-3.15e7","3.15e7","3.15e7"],"times":["0.0","9.999999999999999547481118258862587e-8","3.899999999999999929396754527743951e-6","3.999999999999999818992447303545035e-6"]}},"amplitude":{"pattern":"uniform","time_series":{"values":["0.0","6.3e6","6.3e6","0.0"],"times":["0.0","9.999999999999999547481118258862587e-8","3.899999999999999929396754527743951e-6","3.999999999999999818992447303545035e-6"]}}}]}}
     """
-    ahs_json = JSON.parse(json_str)
+    ahs_json = JSON3.read(json_str)
 
     args = Dict(
         "experiment-path" => "test/",
@@ -24,8 +24,6 @@ using JSON, JSON3
         "compute-energies" => false,
         "generate-plots" => false
     )
-
-    @show ahs_json
 
     result = run(ahs_json, args)
 

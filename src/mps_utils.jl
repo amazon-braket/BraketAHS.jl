@@ -7,15 +7,15 @@ using Dates
 using Base.Filesystem
 using Missings
 using Random
-using JSON
+using JSON3
 
 
 """
 Generate atom positions from the ahs program.
 """
-function get_atom_coordinates(ahs_program::Dict{String, Any})
-    atom_coords = ahs_program["setup"]["ahs_register"]["sites"]
-    filling = ahs_program["setup"]["ahs_register"]["filling"]
+function get_atom_coordinates(ahs_json)
+    atom_coords = ahs_json["setup"]["ahs_register"]["sites"]
+    filling = ahs_json["setup"]["ahs_register"]["filling"]
     atom_coords = [parse.(Float64, c) for c in atom_coords]
     return atom_coords, filling
 end
@@ -189,7 +189,11 @@ function parse_ahs_program(ahs_json, args::Dict{String, Any})
     end
     
     # Serialize the data to a JSON-formatted string, write the JSON string to the file
-    write(joinpath(experiment_path, "ahs_program.json"), JSON.json(ahs_json))
+    json_str = JSON3.write(ahs_json)
+    open(joinpath(experiment_path, "ahs_program.json"), "w") do file
+        write(file, json_str)
+    end
+
     # Write filling data to CSV file
     CSV.write(joinpath(experiment_path, "filling.csv"), DataFrame(filling', :auto))
 

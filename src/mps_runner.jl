@@ -8,10 +8,11 @@ using Dates
 using Missings
 using Random
 using Logging
-using JSON
+using JSON3
 
 include("mps_utils.jl")
 include("plotter.jl")
+
 
 function parse_commandline()
     s = ArgParseSettings()
@@ -19,7 +20,7 @@ function parse_commandline()
         "--program-path"
             help = "the path to the AHS program JSON file"
             arg_type = String
-            default = joinpath("examples", "ahs_program.json")
+            default = joinpath(dirname(@__DIR__), "examples", "ahs_program.json")
         "--interaction-radius"
             help = "the interaction radius in meters"
             arg_type = Float64
@@ -27,7 +28,7 @@ function parse_commandline()
         "--experiment-path"
             help = "the directory in which to store all experiment data"
             arg_type = String
-            default = joinpath("examples", "experiment_braket")
+            default = joinpath(dirname(@__DIR__), "examples", "experiment_braket")
         "--cutoff"
             help = "cutoff for SVD values in MPS evolution"
             arg_type = Float64
@@ -80,7 +81,7 @@ experiment_path = args["experiment-path"]
 program_path    = args["program-path"]
 
 @info "JSON file to read: $program_path"
-ahs_json = JSON.parsefile(program_path)
+ahs_json = JSON3.read(read(program_path, String), Dict{String, Any})
 
 results = run(ahs_json, args)
 
