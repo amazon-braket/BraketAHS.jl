@@ -69,8 +69,8 @@ json_str = JSON3.write(ir(ahs_program))
 json_obj = JSON3.read(json_str)
 
 # Define the file path
+file_path = joinpath(dirname(@__DIR__), "examples", "ahs_program_default.json")
 
-file_path = joinpath(dirname(@__DIR__), "examples", "ahs_program.json")
 
 # Write the JSON object to a file
 open(file_path, "w") do file
