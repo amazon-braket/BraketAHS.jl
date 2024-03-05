@@ -20,7 +20,7 @@ function parse_commandline()
         "--program-path"
             help = "the path to the AHS program JSON file"
             arg_type = String
-            default = joinpath(@__DIR__, "../examples", "ahs_program.json")
+            default = joinpath(dirname(@__DIR__), "examples", "ahs_program.json")
         "--interaction-radius"
             help = "the interaction radius in meters"
             arg_type = Float64
@@ -28,7 +28,7 @@ function parse_commandline()
         "--experiment-path"
             help = "the directory in which to store all experiment data"
             arg_type = String
-            default = joinpath("examples", "experiment_braket")
+            default = joinpath(dirname(@__DIR__), "examples", "experiment_braket")
         "--cutoff"
             help = "cutoff for SVD values in MPS evolution"
             arg_type = Float64
