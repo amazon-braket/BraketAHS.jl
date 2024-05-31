@@ -107,14 +107,14 @@ function compute_energies(samples, Vij::Matrix{Float64}, Δ_glob_ts, Δ_loc_ts, 
 end
 
 """
-    get_trotterized_circuit_2d(sites, τ, n_steps, N, Vij::Matrix{Float64})
+    get_trotterized_circuit_2d(sites, τ, n_steps, N, Vij::Matrix{Float64}, protocol, global_phase::Float64)
 
 Second order Trotterization circuit for a time-dependent Hamiltonian,
 for a time step `τ` and `n_steps` total time steps, on `N` total atoms.
 `sites` defines the site indices in the MPS used to build the circuit.
 Returns a `Vector{Vector{iTensor}}` list of gates at each time step.
 """
-function get_trotterized_circuit_2d(sites, τ::Float64, n_steps::Int, N::Int, Vij::Matrix{Float64}, protocol)
+function get_trotterized_circuit_2d(sites, τ::Float64, n_steps::Int, N::Int, Vij::Matrix{Float64}, protocol, global_phase::Float64)
     circuit = Vector{Vector{ITensor}}(undef, n_steps)
     for i_τ in 1:n_steps
         two_site_gates = ITensor[]
@@ -153,6 +153,12 @@ function get_trotterized_circuit_2d(sites, τ::Float64, n_steps::Int, N::Int, Vi
             return Gj
         end
         all_gates = vcat(two_site_gates, rabi_pulse_gates, global_detuning_gates, local_detuning_gates)
+
+        # Apply global phase to the entire system
+        global_phase_gate = ITensor(1)
+        global_phase_gate *= exp(-im * global_phase * τ / 2)
+        push!(all_gates, global_phase_gate)
+
         # Include gates in reverse order too: (N,N-1),(N-1,N-2),...
         append!(all_gates, reverse(all_gates))
         circuit[i_τ] = all_gates
@@ -253,13 +259,14 @@ function compute_MPS_evolution(ψ::MPS, circuit::Vector{Vector{ITensor}}, max_bo
 end
 
 function run(ahs_json, args)
-
     experiment_path = args["experiment-path"]
     τ = args["tau"]
     n_τ_steps = args["n-tau-steps"]
     C6 = args["C6"]
     interaction_R = args["interaction-radius"]
-    n_shots = args["shots"]    
+    n_shots = args["shots"]
+    global_phase = args["global-phase"] # Add global phase parameter
+
     Vij, protocol, N = parse_ahs_program(ahs_json, args)
 
     @info "Preparing initial ψ MPS"
@@ -268,7 +275,7 @@ function run(ahs_json, args)
     # Initialize ψ to be a product state: Down state (Ground state)
     ψ = MPS(s, n -> "Dn")
     @info "Generating Trotterized circuit"
-    circuit = get_trotterized_circuit_2d(s, τ, n_τ_steps, N, Vij, protocol)
+    circuit = get_trotterized_circuit_2d(s, τ, n_τ_steps, N, Vij, protocol, global_phase) # Pass global phase
 
     max_bond_dim = args["max-bond-dim"]
     cutoff = args["cutoff"]
