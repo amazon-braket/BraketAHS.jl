@@ -47,6 +47,9 @@ function piecewise_protocol(x, points, values)
 end
 
 function parse_protocol(ahs_program, τ::Float64, n_τ_steps::Int)
+    # Extract global phase from JSON
+    global_phase = ahs_program["hamiltonian"]["globalPhase"]
+    
     # Define piecewise functions (protocols)
     time_steps = collect(0:(n_τ_steps-1)) ./ n_τ_steps 
     total_time = n_τ_steps * τ
@@ -58,7 +61,7 @@ function parse_protocol(ahs_program, τ::Float64, n_τ_steps::Int)
 
     pattern = ahs_program["hamiltonian"]["shiftingFields"][1]["magnitude"]["pattern"]
     time_points_shift = ahs_program["hamiltonian"]["shiftingFields"][1]["magnitude"]["time_series"]["times"]
-    values_shift = ahs_program["hamiltonian"]["shiftingFields"][1]["magnitude"]["time_series"]["values"]
+    values_shift = ahs_program["hamiltonian"]["shiftingFields"][1]["magnitude"]["values"]
 
     # Convert strings to floats [parsing Braket AHS program]
     time_points_Δ = parse.(Float64, time_points_Δ)
@@ -88,7 +91,8 @@ function parse_protocol(ahs_program, τ::Float64, n_τ_steps::Int)
             rabi_driving=Ω_ts,
             global_detuning=Δ_glob_ts,
             local_detuning=Δ_loc_ts,
-            pattern=pattern)
+            pattern=pattern,
+            global_phase=global_phase)
 end
 
 function compute_energies(samples, Vij::Matrix{Float64}, Δ_glob_ts, Δ_loc_ts, pattern)
@@ -116,6 +120,7 @@ Returns a `Vector{Vector{iTensor}}` list of gates at each time step.
 """
 function get_trotterized_circuit_2d(sites, τ::Float64, n_steps::Int, N::Int, Vij::Matrix{Float64}, protocol)
     circuit = Vector{Vector{ITensor}}(undef, n_steps)
+    global_phase = protocol[:global_phase]
     for i_τ in 1:n_steps
         two_site_gates = ITensor[]
         ## Two-site terms: Vij*n_i*n_j
@@ -137,22 +142,8 @@ function get_trotterized_circuit_2d(sites, τ::Float64, n_steps::Int, N::Int, Vi
         end
 
         Δ_glob_ts = protocol[:global_detuning]
-        detuning_ops = [0.5*op("I", s) + op("Sz", s) for s in sites]
-        # Global Detuning: - Δ_glob_ts(t)*n_i
-        global_detuning_gates = map(detuning_ops) do op
-            hj_Δ_glob = - Δ_glob_ts[i_τ] * op
-            Gj = exp(-im * τ / 2 * hj_Δ_glob)
-            return Gj
-        end
-        Δ_loc_ts = protocol[:local_detuning]
-        pattern = protocol[:pattern]
-        # Local Detuning: - Δ_loc_ts(t) * pattern[i] * n_i
-        local_detuning_gates = map(zip(pattern, detuning_ops)) do (fill, op) 
-            hj_Δ_loc = -Δ_loc_ts[i_τ] * fill * op
-            Gj = exp(-im * τ / 2 * hj_Δ_loc)
-            return Gj
-        end
-        all_gates = vcat(two_site_gates, rabi_pulse_gates, global_detuning_gates, local_detuning_gates)
+        detuning_ops = [0.5*op("I", s) + op("Sz", s
+all_gates = vcat(two_site_gates, rabi_pulse_gates, global_detuning_gates, local_detuning_gates)
         # Include gates in reverse order too: (N,N-1),(N-1,N-2),...
         append!(all_gates, reverse(all_gates))
         circuit[i_τ] = all_gates
