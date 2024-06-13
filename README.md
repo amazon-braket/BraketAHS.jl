@@ -44,7 +44,7 @@ The output .json file will be saved in `examples/ahs_program.json`.
 1.B Generate .json using Python Braket SDK from the AHS program object:
 ```
 ahs_ir = ahs_program.to_ir()
-json_object = json.loads(ahs_ir.json())
+json_data = json.loads(ahs_ir.json())
 json_string = json.dumps(json_data, indent=4) 
 filename = "ahs_program.json"
 with open(filename, "w") as json_file:
