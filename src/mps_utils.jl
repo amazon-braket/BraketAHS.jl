@@ -46,26 +46,25 @@ function piecewise_protocol(x, points, values)
     return y
 end
 
-function parse_protocol(ahs_program, τ::Float64, n_τ_steps::Int)
+function parse_protocol(ahs_program, n_τ_steps::Int)
     # Define piecewise functions (protocols)
     time_steps = collect(0:(n_τ_steps-1)) ./ n_τ_steps 
-    total_time = n_τ_steps * τ
     time_points_Δ = ahs_program["hamiltonian"]["drivingFields"][1]["detuning"]["time_series"]["times"]
     values_Δ = ahs_program["hamiltonian"]["drivingFields"][1]["detuning"]["time_series"]["values"]
 
     time_points_Ω = ahs_program["hamiltonian"]["drivingFields"][1]["amplitude"]["time_series"]["times"]
     values_Ω = ahs_program["hamiltonian"]["drivingFields"][1]["amplitude"]["time_series"]["values"]
 
-    if "local_detuning" ∉ keys(ahs_program["hamiltonian"]) || length(ahs_program["hamiltonian"]["local_detuning"]) == 0
+    if "localDetuning" ∉ keys(ahs_program["hamiltonian"]) || length(ahs_program["hamiltonian"]["localDetuning"]) == 0
         # Define an empty local detuning with zero pattern and zero values
         filling = ahs_json["setup"]["ahs_register"]["filling"]
         pattern = ["0" for _ in filling]
         time_points_local_detuning = ["0.0", time_points_Ω[end]]
         values_local_detuning = ["0.0", "0.0"]
     else
-        pattern = ahs_program["hamiltonian"]["local_detuning"][1]["magnitude"]["pattern"]
-        time_points_local_detuning = ahs_program["hamiltonian"]["local_detuning"][1]["magnitude"]["time_series"]["times"]
-        values_local_detuning = ahs_program["hamiltonian"]["local_detuning"][1]["magnitude"]["time_series"]["values"]
+        pattern = ahs_program["hamiltonian"]["localDetuning"][1]["magnitude"]["pattern"]
+        time_points_local_detuning = ahs_program["hamiltonian"]["localDetuning"][1]["magnitude"]["time_series"]["times"]
+        values_local_detuning = ahs_program["hamiltonian"]["localDetuning"][1]["magnitude"]["time_series"]["values"]
     end
 
     # Convert strings to floats [parsing Braket AHS program]
@@ -73,12 +72,14 @@ function parse_protocol(ahs_program, τ::Float64, n_τ_steps::Int)
     values_Δ = parse.(Float64, values_Δ)
     time_points_Ω = parse.(Float64, time_points_Ω)
     values_Ω = parse.(Float64, values_Ω)
+    
 
     pattern = parse.(Float64, pattern)
     time_points_local_detuning = parse.(Float64, time_points_local_detuning)
     values_local_detuning = parse.(Float64, values_local_detuning)
 
     # Define piecewise protocols
+    total_time = time_points_Δ[end]
     t_vals = [i/n_τ_steps*total_time for i in 1:n_τ_steps]
     # Global detuning time series
     Δ_glob_ts = [piecewise_protocol(t, time_points_Δ, values_Δ) for t in t_vals]
@@ -96,7 +97,9 @@ function parse_protocol(ahs_program, τ::Float64, n_τ_steps::Int)
             rabi_driving=Ω_ts,
             global_detuning=Δ_glob_ts,
             local_detuning=Δ_loc_ts,
-            pattern=pattern)
+            pattern=pattern,
+            τ=total_time/n_τ_steps
+            )
 end
 
 function compute_energies(samples, Vij::Matrix{Float64}, Δ_glob_ts, Δ_loc_ts, pattern)
@@ -115,14 +118,15 @@ function compute_energies(samples, Vij::Matrix{Float64}, Δ_glob_ts, Δ_loc_ts, 
 end
 
 """
-    get_trotterized_circuit_2d(sites, τ, n_steps, N, Vij::Matrix{Float64})
+    get_trotterized_circuit_2d(sites, n_steps, N, Vij::Matrix{Float64})
 
 Second order Trotterization circuit for a time-dependent Hamiltonian,
-for a time step `τ` and `n_steps` total time steps, on `N` total atoms.
+for a time step `n_steps` total time steps, on `N` total atoms.
 `sites` defines the site indices in the MPS used to build the circuit.
 Returns a `Vector{Vector{iTensor}}` list of gates at each time step.
 """
-function get_trotterized_circuit_2d(sites, τ::Float64, n_steps::Int, N::Int, Vij::Matrix{Float64}, protocol)
+function get_trotterized_circuit_2d(sites, n_steps::Int, N::Int, Vij::Matrix{Float64}, protocol)
+    τ = protocol[:τ]
     circuit = Vector{Vector{ITensor}}(undef, n_steps)
     for i_τ in 1:n_steps
         two_site_gates = ITensor[]
@@ -180,7 +184,6 @@ Returns prepared experiment protocol `protocol` as a `NamedTuple` with keys
 function parse_ahs_program(ahs_json, args::Dict{String, Any})
     program_path = args["program-path"]
     experiment_path = args["experiment-path"]
-    τ = args["tau"]
     n_τ_steps = args["n-tau-steps"]
     interaction_R = args["interaction-radius"]
     C6 = args["C6"]
@@ -210,7 +213,7 @@ function parse_ahs_program(ahs_json, args::Dict{String, Any})
     @debug "Atoms in atom array: $atom_coordinates"
 
     Vij = get_Vij(atom_coordinates, N, interaction_R, C6)
-    protocol = parse_protocol(ahs_json, τ, n_τ_steps)
+    protocol = parse_protocol(ahs_json, n_τ_steps)
     return Vij, protocol, N
 end
 
@@ -263,7 +266,6 @@ end
 function run(ahs_json, args)
 
     experiment_path = args["experiment-path"]
-    τ = args["tau"]
     n_τ_steps = args["n-tau-steps"]
     C6 = args["C6"]
     interaction_R = args["interaction-radius"]
@@ -276,7 +278,7 @@ function run(ahs_json, args)
     # Initialize ψ to be a product state: Down state (Ground state)
     ψ = MPS(s, n -> "Dn")
     @info "Generating Trotterized circuit"
-    circuit = get_trotterized_circuit_2d(s, τ, n_τ_steps, N, Vij, protocol)
+    circuit = get_trotterized_circuit_2d(s, n_τ_steps, N, Vij, protocol)
 
     max_bond_dim = args["max-bond-dim"]
     cutoff = args["cutoff"]
