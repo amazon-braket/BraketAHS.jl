@@ -56,9 +56,17 @@ function parse_protocol(ahs_program, τ::Float64, n_τ_steps::Int)
     time_points_Ω = ahs_program["hamiltonian"]["drivingFields"][1]["amplitude"]["time_series"]["times"]
     values_Ω = ahs_program["hamiltonian"]["drivingFields"][1]["amplitude"]["time_series"]["values"]
 
-    pattern = ahs_program["hamiltonian"]["shiftingFields"][1]["magnitude"]["pattern"]
-    time_points_shift = ahs_program["hamiltonian"]["shiftingFields"][1]["magnitude"]["time_series"]["times"]
-    values_shift = ahs_program["hamiltonian"]["shiftingFields"][1]["magnitude"]["time_series"]["values"]
+    if "local_detuning" ∉ keys(ahs_program["hamiltonian"]) || length(ahs_program["hamiltonian"]["local_detuning"]) == 0
+        # Define an empty local detuning with zero pattern and zero values
+        filling = ahs_json["setup"]["ahs_register"]["filling"]
+        pattern = ["0" for _ in filling]
+        time_points_local_detuning = ["0.0", time_points_Ω[end]]
+        values_local_detuning = ["0.0", "0.0"]
+    else
+        pattern = ahs_program["hamiltonian"]["local_detuning"][1]["magnitude"]["pattern"]
+        time_points_local_detuning = ahs_program["hamiltonian"]["local_detuning"][1]["magnitude"]["time_series"]["times"]
+        values_local_detuning = ahs_program["hamiltonian"]["local_detuning"][1]["magnitude"]["time_series"]["values"]
+    end
 
     # Convert strings to floats [parsing Braket AHS program]
     time_points_Δ = parse.(Float64, time_points_Δ)
@@ -67,15 +75,15 @@ function parse_protocol(ahs_program, τ::Float64, n_τ_steps::Int)
     values_Ω = parse.(Float64, values_Ω)
 
     pattern = parse.(Float64, pattern)
-    time_points_shift = parse.(Float64, time_points_shift)
-    values_shift = parse.(Float64, values_shift)
+    time_points_local_detuning = parse.(Float64, time_points_local_detuning)
+    values_local_detuning = parse.(Float64, values_local_detuning)
 
     # Define piecewise protocols
     t_vals = [i/n_τ_steps*total_time for i in 1:n_τ_steps]
     # Global detuning time series
     Δ_glob_ts = [piecewise_protocol(t, time_points_Δ, values_Δ) for t in t_vals]
     # Local detuning time series
-    Δ_loc_ts = [piecewise_protocol(t, time_points_shift, values_shift) for t in t_vals]
+    Δ_loc_ts = [piecewise_protocol(t, time_points_local_detuning, values_local_detuning) for t in t_vals]
     # Rabi driving field
     Ω_ts = [piecewise_protocol(t, time_points_Ω, values_Ω) for t in t_vals]
 
