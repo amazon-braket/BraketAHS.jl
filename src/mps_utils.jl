@@ -57,7 +57,7 @@ function parse_protocol(ahs_program, n_τ_steps::Int)
 
     if "localDetuning" ∉ keys(ahs_program["hamiltonian"]) || length(ahs_program["hamiltonian"]["localDetuning"]) == 0
         # Define an empty local detuning with zero pattern and zero values
-        filling = ahs_json["setup"]["ahs_register"]["filling"]
+        filling = ahs_program["setup"]["ahs_register"]["filling"]
         pattern = ["0" for _ in filling]
         time_points_local_detuning = ["0.0", time_points_Ω[end]]
         values_local_detuning = ["0.0", "0.0"]
