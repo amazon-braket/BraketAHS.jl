@@ -26,7 +26,6 @@ function run_program(
         "dim" => dim,
         "compute-correlators" => if_compute_correlators,
         "compute-energies" => if_compute_energies,
-        "generate-plots" => generate_plots
     )
     
     @info "Parsed input arguments"
