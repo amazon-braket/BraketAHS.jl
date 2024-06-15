@@ -1,6 +1,9 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+using Pkg
+Pkg.activate(".")
+
 using ArgParse
 using ITensors
 using CSV, DataFrames
@@ -42,10 +45,6 @@ function parse_commandline()
         "--compute-truncation-error"
             help = "whether to compute the error induced by truncation at each step (computationally expensive)"
             action = :store_true # default without this flag is false
-        # "--tau"
-        #     help = "time evolution step size in seconds"
-        #     arg_type = Float64
-        #     default = 0.01e-6
         "--n-tau-steps"
             help = "number of time evolution steps to simulate"
             arg_type = Int
@@ -59,9 +58,6 @@ function parse_commandline()
             action = :store_true
         "--compute-energies"
             help = "Compute energies from samples at the end of the evolution (t=T)"
-            action = :store_true            
-        "--generate-plots"
-            help = "Generate plots after experiment is finished"
             action = :store_true
     end
     return parse_args(s)
@@ -85,10 +81,3 @@ results = run(ahs_json, args)
 
 @info "Saving results"
 save_results(results, experiment_path)
-
-@info "Generating plots"
-if args["generate-plots"]
-    @info "Plotting results from $experiment_path"
-    plot_all(experiment_path)
-    @info "Plotting complete."
-end
