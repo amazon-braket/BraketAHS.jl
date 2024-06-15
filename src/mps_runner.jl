@@ -2,14 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 using Pkg
-Pkg.activate(".")
+Pkg.activate(dirname(@__DIR__))
 
 using ArgParse
-using ITensors
-using CSV, DataFrames
-using Dates
-using Missings
-using Random
 using Logging
 using JSON3
 
