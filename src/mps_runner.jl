@@ -11,8 +11,6 @@ using Logging
 using JSON3
 
 include("mps_utils.jl")
-include("plotter.jl")
-
 
 function parse_commandline()
     s = ArgParseSettings()
