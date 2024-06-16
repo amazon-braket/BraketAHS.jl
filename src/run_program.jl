@@ -1,19 +1,19 @@
 function run_program(
     program_path::String;
-    interaction_radius::Float64 = 7e-6,
+    interaction_radius::Float64 = 12e-6,
     experiment_path::String = joinpath(split(program_path,"/")[1:end-1]),
     cutoff::Float64 = 1e-7,
     shots::Int64 = 1000,
-    max_bond_dim::Int64 = 16,
+    max_bond_dim::Int64 = 4,
     compute_truncation_error::Bool = false,
-    n_tau_steps::Int64 = 400,
+    n_tau_steps::Int64 = 80,
     C6::Float64 = 5.42e-24,
     dim::Int64 = 2,
-    if_compute_correlators::Bool = true,
-    if_compute_energies::Bool = true,
+    if_compute_correlators::Bool = false,
+    if_compute_energies::Bool = false,
     )
     
-    experiment_path = "/$(experiment_path)"
+    # experiment_path = "/$(experiment_path)"
     parsed_args = Dict(
         "program-path" => program_path,
         "interaction-radius" => interaction_radius,
