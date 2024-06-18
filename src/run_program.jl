@@ -1,4 +1,4 @@
-# using DelimitedFiles
+using DelimitedFiles
 
 function run_program(
     program_path::String;
@@ -88,11 +88,11 @@ function run_program(
         @views samples[:, shot] = [(2 - x) for x in sample_i]
     end
 
-    JSON3.write(joinpath(experiment_path, "mps_samples.json"),samples)
+    # JSON3.write(joinpath(experiment_path, "mps_samples.json"),samples)
 
-    # open("mps_density.txt", "w") do io
-    #     writedlm(io, samples)
-    #  end
+    open("mps_samples.txt", "w") do io
+        writedlm(io, samples)
+     end
  
 
     # results = Dict(
