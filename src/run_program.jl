@@ -90,7 +90,7 @@ function run_program(
 
     # JSON3.write(joinpath(experiment_path, "mps_samples.json"),samples)
 
-    open("mps_samples.txt", "w") do io
+    open(joinpath(experiment_path,"mps_samples.txt"), "w") do io
         writedlm(io, samples)
      end
  
