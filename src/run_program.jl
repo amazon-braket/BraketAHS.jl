@@ -1,3 +1,5 @@
+using DelimitedFiles
+
 function run_program(
     program_path::String;
     interaction_radius::Float64 = 12e-6,
@@ -84,30 +86,35 @@ function run_program(
         @views samples[:, shot] = [(2 - x) for x in sample_i]
     end
 
-    results = Dict(
-        "samples" => samples,
-        "density" => density,
-        "summary" => summary_array
-    )
+    open("mps_density.txt", "w") do io
+        writedlm(io, samples)
+     end
+ 
 
-    if parsed_args["compute-correlators"]
-        @info "Evaluating correlation function ..."
-        correlator_zz = []
-        correlator_zz = 4 .* correlation_matrix(ψ, "Sz", "Sz") # renormalize to [-1, 1] range
-        results["correlator_zz"] = correlator_zz
-    end    
+    # results = Dict(
+    #     "samples" => samples,
+    #     "density" => density,
+    #     "summary" => summary_array
+    # )
 
-    if parsed_args["compute-energies"]
-        @info "Evaluating energies at t=T ..."
-        energies = []
+    # if parsed_args["compute-correlators"]
+    #     @info "Evaluating correlation function ..."
+    #     correlator_zz = []
+    #     correlator_zz = 4 .* correlation_matrix(ψ, "Sz", "Sz") # renormalize to [-1, 1] range
+    #     results["correlator_zz"] = correlator_zz
+    # end    
 
-        Δ_glob_ts = protocol[:global_detuning]
-        Δ_loc_ts = protocol[:local_detuning]
-        pattern = protocol[:pattern]
+    # if parsed_args["compute-energies"]
+    #     @info "Evaluating energies at t=T ..."
+    #     energies = []
+
+    #     Δ_glob_ts = protocol[:global_detuning]
+    #     Δ_loc_ts = protocol[:local_detuning]
+    #     pattern = protocol[:pattern]
     
-        energies = compute_energies(samples', Vij, Δ_glob_ts, Δ_loc_ts, pattern)
-        results["energies"] = energies
-    end
+    #     energies = compute_energies(samples', Vij, Δ_glob_ts, Δ_loc_ts, pattern)
+    #     results["energies"] = energies
+    # end
 
-    save_results(results, experiment_path)
+    # save_results(results, experiment_path)
 end
