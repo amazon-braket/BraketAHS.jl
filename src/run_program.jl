@@ -109,6 +109,5 @@ function run_program(
         results["energies"] = energies
     end
 
-    @info "Saving results"
     save_results(results, experiment_path)
 end
