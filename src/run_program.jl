@@ -31,8 +31,6 @@ function run_program(
         "compute-energies" => if_compute_energies,
     )
     
-    print("wtf")
-
     @info "Parsed input arguments"
     for (k,v) in parsed_args
         @info "\t$k: $v"
