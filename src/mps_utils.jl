@@ -311,42 +311,45 @@ function run(ahs_json, args)
         @views samples[:, shot] = [(2 - x) for x in sample_i]
     end
 
-    # Correlation matrix 
-    correlator_zz = []
+    return samples
 
-    if args["compute-correlators"]
-        @info "Evaluating correlation function ..."
-        correlator_zz = 4 .* correlation_matrix(ψ, "Sz", "Sz") # renormalize to [-1, 1] range
-    end    
+    # # Correlation matrix 
+    # correlator_zz = []
 
-    # Energies at t=T
-    energies = []
+    # if args["compute-correlators"]
+    #     @info "Evaluating correlation function ..."
+    #     correlator_zz = 4 .* correlation_matrix(ψ, "Sz", "Sz") # renormalize to [-1, 1] range
+    # end    
+
+    # # Energies at t=T
+    # energies = []
     
-    if args["compute-energies"]
-        @info "Evaluating energies at t=T ..."
+    # if args["compute-energies"]
+    #     @info "Evaluating energies at t=T ..."
 
-        Δ_glob_ts = protocol[:global_detuning]
-        Δ_loc_ts = protocol[:local_detuning]
-        pattern = protocol[:pattern]
+    #     Δ_glob_ts = protocol[:global_detuning]
+    #     Δ_loc_ts = protocol[:local_detuning]
+    #     pattern = protocol[:pattern]
     
-        energies = compute_energies(samples', Vij, Δ_glob_ts, Δ_loc_ts, pattern)
-    end    
+    #     energies = compute_energies(samples', Vij, Δ_glob_ts, Δ_loc_ts, pattern)
+    # end
+    
 
-    results = Dict(
-        "samples" => samples,
-        "density" => density,
-        "summary" => summary_array
-    )
+    # results = Dict(
+    #     "samples" => samples,
+    #     "density" => density,
+    #     "summary" => summary_array
+    # )
 
-    if args["compute-energies"]
-        results["energies"] = energies
-    end
+    # if args["compute-energies"]
+    #     results["energies"] = energies
+    # end
 
-    if args["compute-correlators"]
-        results["correlator_zz"] = correlator_zz
-    end    
+    # if args["compute-correlators"]
+    #     results["correlator_zz"] = correlator_zz
+    # end    
 
-    return results
+    # return results
 end
 
 
