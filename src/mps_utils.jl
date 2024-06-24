@@ -288,15 +288,15 @@ function run(ahs_json, args)
     res = @timed begin
         density, err_array, ψ = compute_MPS_evolution(ψ, circuit, max_bond_dim, cutoff, compute_truncation_error=compute_truncation_error)
     end
-    summary_array = ["time: $(res.time)",
-                    "n_atoms: $N",
-                    "Trotter steps: $n_τ_steps",
-                    "interaction_R: $interaction_R",
-                    "MPS cutoff: $cutoff",
-                    "max_bond_dim: $max_bond_dim",
-                    "total truncation err: $(sum(err_array))"]
-    summary_string = join(summary_array, ", ")
-    write(joinpath(experiment_path, "summary.txt"), summary_string)
+    # summary_array = ["time: $(res.time)",
+    #                 "n_atoms: $N",
+    #                 "Trotter steps: $n_τ_steps",
+    #                 "interaction_R: $interaction_R",
+    #                 "MPS cutoff: $cutoff",
+    #                 "max_bond_dim: $max_bond_dim",
+    #                 "total truncation err: $(sum(err_array))"]
+    # summary_string = join(summary_array, ", ")
+    # write(joinpath(experiment_path, "summary.txt"), summary_string)
 
     @info "Simulation complete. Elapsed time and memory used: $(res.time)."
     @info "Number of atoms: $N, MPS cutoff: $cutoff, max_bond_dim: $max_bond_dim, Trotter steps: $n_τ_steps"
