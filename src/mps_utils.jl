@@ -352,6 +352,14 @@ function run(ahs_json, args)
     # return results
 end
 
+using Distributed
+num_cores = length(Sys.cpu_info())
+if nprocs()==1
+    addprocs(num_cores; exeflags=`--project=$(Base.active_project())`)
+end    
+
+run_batch(ahs_jsons, args) = pmap(ahs_jsons) do ahs_json run(ahs_json, args) end
+
 
 """
     save_results(experiment_path::String,
