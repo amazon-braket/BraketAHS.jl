@@ -352,17 +352,17 @@ function run(ahs_json, args)
     # return results
 end
 
-using Distributed
+# using Distributed
 
 
-function run_batch(ahs_jsons, args)
-    num_cores = length(Sys.cpu_info())
-    if nprocs()==1
-        addprocs(num_cores; exeflags=`--project=$(Base.active_project())`)
-    end    
+# function run_batch(ahs_jsons, args)
+#     num_cores = length(Sys.cpu_info())
+#     if nprocs()==1
+#         addprocs(num_cores; exeflags=`--project=$(Base.active_project())`)
+#     end    
 
-    return pmap(ahs_jsons) do ahs_json run(ahs_json, args) end
-end 
+#     return pmap(ahs_jsons) do ahs_json run(ahs_json, args) end
+# end 
 
 
 """
