@@ -381,13 +381,13 @@ function run_batch(ahs_jsons, args; max_parallel=-1)
         return
     end
     tasks = Vector{}(undef, n_task_threads)
-    @sync for worker in 1:n_task_threads
-        println("worker = $worker")
-        tasks[worker] = Threads.@spawn process_work()
-    end
+    # @sync for worker in 1:n_task_threads
+    #     println("spawn worker = $worker")
+    #     tasks[worker] = Threads.@spawn process_work()
+    # end
 
     @sync @threads for worker in 1:n_task_threads
-        println("worker = $worker")
+        println("threads worker = $worker")
         process_work()
     end
     
