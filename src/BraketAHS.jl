@@ -4,10 +4,10 @@
 
 module BraketAHS
 
-export run, run_batch, run_program
+export run, run_batch
 export parse_ahs_program #, save_results
 include("mps_utils.jl")
 
-# export run_program
-# include("run_program.jl")
+export run_program
+include("run_program.jl")
 end # module
