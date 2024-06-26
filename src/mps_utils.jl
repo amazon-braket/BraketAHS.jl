@@ -385,7 +385,7 @@ function run_batch(ahs_jsons, args; max_parallel=-1)
     #     tasks[worker] = Threads.@spawn process_work()
     # end
 
-    @threads for worker in 1:n_task_threads
+    Threads.@threads for worker in 1:n_task_threads
         println("worker = $worker")
         process_work()
     end
