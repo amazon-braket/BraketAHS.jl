@@ -8,7 +8,7 @@ using Base.Filesystem
 using Missings
 using Random
 using JSON3
-using .Threads
+# using .Threads
 
 
 """
@@ -381,15 +381,15 @@ function run_batch(ahs_jsons, args; max_parallel=-1)
         return
     end
     tasks = Vector{}(undef, n_task_threads)
-    # @sync for worker in 1:n_task_threads
-    #     println("spawn worker = $worker")
-    #     tasks[worker] = Threads.@spawn process_work()
-    # end
-
-    @sync @threads for worker in 1:n_task_threads
-        println("threads worker = $worker")
-        process_work()
+    @sync for worker in 1:n_task_threads
+        println("spawn worker = $worker")
+        tasks[worker] = Threads.@spawn process_work()
     end
+
+    # @sync @threads for worker in 1:n_task_threads
+    #     println("threads worker = $worker")
+    #     process_work()
+    # end
     
     
     # # tasks don't return anything so we can wait rather than fetch
