@@ -355,7 +355,7 @@ end
 function run_batch(ahs_jsons, args; max_parallel=-1)
     # println("in run_batch")
     n_tasks = length(ahs_jsons)
-    println(n_task)
+    println(n_tasks)
     todo_tasks_ch = Channel{Int}(ch->foreach(ix->put!(ch, ix), 1:n_tasks), n_tasks)
     max_parallel_threads = max_parallel > 0 ? max_parallel : 32
     n_task_threads = min(max_parallel_threads, n_tasks)
