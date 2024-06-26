@@ -15,7 +15,7 @@ function run_program(
     if_compute_energies::Bool = false,
     )
     
-    experiment_path = "/$(experiment_path)"
+    # experiment_path = "/$(experiment_path)"
     parsed_args = Dict(
         "program-path" => program_path,
         "interaction-radius" => interaction_radius,
