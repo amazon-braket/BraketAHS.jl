@@ -362,6 +362,7 @@ function run_batch(ahs_jsons, args; max_parallel=-1)
     results = Vector{}(undef, n_tasks)
     function process_work()
         while isready(todo_tasks_ch)
+            println("in while")
             my_ix = -1
             # need to lock the channel as it may become empty
             # and "unready" in between the while-loop call
