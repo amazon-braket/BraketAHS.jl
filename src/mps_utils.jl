@@ -352,17 +352,43 @@ function run(ahs_json, args)
     # return results
 end
 
-# using Distributed
+function run_batch(ahs_jsons, args; max_parallel=-1)
+    n_tasks = length(ahs_jsons)
+    todo_tasks_ch = Channel{Int}(ch->foreach(ix->put!(ch, ix), 1:n_tasks), n_tasks)
+    max_parallel_threads = max_parallel > 0 ? max_parallel : 32
+    n_task_threads = min(max_parallel_threads, n_tasks)
 
+    results = Vector{}(undef, n_tasks)
+    function process_work()
+        while isready(todo_tasks_ch)
+            my_ix = -1
+            # need to lock the channel as it may become empty
+            # and "unready" in between the while-loop call
+            # and the call to take!
+            lock(todo_tasks_ch) do
+                my_ix = isready(todo_tasks_ch) ? take!(todo_tasks_ch) : -1
+            end
+            # if my_ix is still -1, the channel is empty and
+            # there's no more work to do
+            my_ix == -1 && break
+            ahs_json  = ahs_jsons[my_ix]
+            results[my_ix] = run(ahs_json, args)
+        end
+        return
+    end
+    tasks = Vector{}(undef, n_task_threads)
+    @sync for worker in 1:n_task_threads
+        tasks[worker] = Threads.@spawn process_work()
+    end
+    # tasks don't return anything so we can wait rather than fetch
+    wait.(tasks)
+    # check to ensure all the results were in fact populated
+    for r_ix in 1:n_tasks
+        @assert isassigned(results, r_ix)
+    end
+    return results
 
-# function run_batch(ahs_jsons, args)
-#     num_cores = length(Sys.cpu_info())
-#     if nprocs()==1
-#         addprocs(num_cores; exeflags=`--project=$(Base.active_project())`)
-#     end    
-
-#     return pmap(ahs_jsons) do ahs_json run(ahs_json, args) end
-# end 
+end 
 
 
 """
