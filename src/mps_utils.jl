@@ -272,7 +272,14 @@ function run(ahs_json, args)
     C6 = args["C6"]
     interaction_R = args["interaction-radius"]
     n_shots = args["shots"]    
-    Vij, protocol, N = parse_ahs_program(ahs_json, args)
+    # Vij, protocol, N = parse_ahs_program(ahs_json, args)
+
+    # Read atom coords and fillings
+    atom_coordinates, _ = get_atom_coordinates(ahs_json)
+    N = length(atom_coordinates)
+
+    Vij = get_Vij(atom_coordinates, N, interaction_R, C6)
+    protocol = parse_protocol(ahs_json, n_τ_steps)
 
     @info "Preparing initial ψ MPS"
     s = siteinds("S=1/2", N; conserve_qns=false)
