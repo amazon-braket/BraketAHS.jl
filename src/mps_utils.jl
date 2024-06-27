@@ -193,12 +193,12 @@ function parse_ahs_program(ahs_json, args::Dict{String, Any})
     atom_coordinates, filling = get_atom_coordinates(ahs_json)
     N = length(atom_coordinates)
 
-    if !isdir(experiment_path)
-        mkdir(experiment_path)
-        @info "Directory '$experiment_path' created."
-    else
-        @info "Directory '$experiment_path' already exists."
-    end
+    # if !isdir(experiment_path)
+    #     mkdir(experiment_path)
+    #     @info "Directory '$experiment_path' created."
+    # else
+    #     @info "Directory '$experiment_path' already exists."
+    # end
     
     # Serialize the data to a JSON-formatted string, write the JSON string to the file
     json_str = JSON3.write(ahs_json)
