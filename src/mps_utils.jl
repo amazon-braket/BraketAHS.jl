@@ -193,6 +193,7 @@ function parse_ahs_program(ahs_json, args::Dict{String, Any})
     atom_coordinates, filling = get_atom_coordinates(ahs_json)
     N = length(atom_coordinates)
 
+    println("no mkdir")
     # if !isdir(experiment_path)
     #     mkdir(experiment_path)
     #     @info "Directory '$experiment_path' created."
