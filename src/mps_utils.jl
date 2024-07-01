@@ -9,6 +9,7 @@ using Missings
 using Random
 using JSON3
 # using .Threads
+using PrecompileTools
 
 
 """
@@ -265,151 +266,153 @@ function compute_MPS_evolution(ψ::MPS, circuit::Vector{Vector{ITensor}}, max_bo
     return meas_array, err_array, ψ    
 end
 
-function run(ahs_json, args)
+@recompile_invalidations begin
 
-    experiment_path = args["experiment-path"]
-    n_τ_steps = args["n-tau-steps"]
-    C6 = args["C6"]
-    interaction_R = args["interaction-radius"]
-    n_shots = args["shots"]    
-    # Vij, protocol, N = parse_ahs_program(ahs_json, args)
-
-    # Read atom coords and fillings
-    atom_coordinates, _ = get_atom_coordinates(ahs_json)
-    N = length(atom_coordinates)
-
-    Vij = get_Vij(atom_coordinates, N, interaction_R, C6)
-    protocol = parse_protocol(ahs_json, n_τ_steps)
-
-    @info "Preparing initial ψ MPS"
-    s = siteinds("S=1/2", N; conserve_qns=false)
-
-    # Initialize ψ to be a product state: Down state (Ground state)
-    ψ = MPS(s, n -> "Dn")
-    @info "Generating Trotterized circuit"
-    circuit = get_trotterized_circuit_2d(s, n_τ_steps, N, Vij, protocol)
-
-    max_bond_dim = args["max-bond-dim"]
-    cutoff = args["cutoff"]
-    compute_truncation_error = args["compute-truncation-error"]
-
-    @info "Starting MPS evolution"
-    res = @timed begin
-        density, err_array, ψ = compute_MPS_evolution(ψ, circuit, max_bond_dim, cutoff, compute_truncation_error=compute_truncation_error)
-    end
-    # summary_array = ["time: $(res.time)",
-    #                 "n_atoms: $N",
-    #                 "Trotter steps: $n_τ_steps",
-    #                 "interaction_R: $interaction_R",
-    #                 "MPS cutoff: $cutoff",
-    #                 "max_bond_dim: $max_bond_dim",
-    #                 "total truncation err: $(sum(err_array))"]
-    # summary_string = join(summary_array, ", ")
-    # write(joinpath(experiment_path, "summary.txt"), summary_string)
-
-    @info "Simulation complete. Elapsed time and memory used: $(res.time)."
-    @info "Number of atoms: $N, MPS cutoff: $cutoff, max_bond_dim: $max_bond_dim, Trotter steps: $n_τ_steps"
-
-    # Bitstring samples
-    @info "Sampling from final MPS state"
-    samples = Matrix{Int}(undef, N, n_shots)
-    for shot in 1:n_shots
-        sample_i = sample!(ψ) # Sampling bitstrings from a final psi(T)
-        # iTensor MPS sample outputs values [1, 2] for 2-level system
-        # Converting [1,2] -> [0,1]
-        @views samples[:, shot] = [(2 - x) for x in sample_i]
-    end
-
-    return samples
-
-    # # Correlation matrix 
-    # correlator_zz = []
-
-    # if args["compute-correlators"]
-    #     @info "Evaluating correlation function ..."
-    #     correlator_zz = 4 .* correlation_matrix(ψ, "Sz", "Sz") # renormalize to [-1, 1] range
-    # end    
-
-    # # Energies at t=T
-    # energies = []
+    function run(ahs_json, args)
     
-    # if args["compute-energies"]
-    #     @info "Evaluating energies at t=T ..."
-
-    #     Δ_glob_ts = protocol[:global_detuning]
-    #     Δ_loc_ts = protocol[:local_detuning]
-    #     pattern = protocol[:pattern]
+        experiment_path = args["experiment-path"]
+        n_τ_steps = args["n-tau-steps"]
+        C6 = args["C6"]
+        interaction_R = args["interaction-radius"]
+        n_shots = args["shots"]    
+        # Vij, protocol, N = parse_ahs_program(ahs_json, args)
     
-    #     energies = compute_energies(samples', Vij, Δ_glob_ts, Δ_loc_ts, pattern)
-    # end
+        # Read atom coords and fillings
+        atom_coordinates, _ = get_atom_coordinates(ahs_json)
+        N = length(atom_coordinates)
     
-
-    # results = Dict(
-    #     "samples" => samples,
-    #     "density" => density,
-    #     "summary" => summary_array
-    # )
-
-    # if args["compute-energies"]
-    #     results["energies"] = energies
-    # end
-
-    # if args["compute-correlators"]
-    #     results["correlator_zz"] = correlator_zz
-    # end    
-
-    # return results
-end
-
-function run_batch(ahs_jsons, args; max_parallel=-1)
-    # println("in run_batch")
-    n_tasks = length(ahs_jsons)
-    println(n_tasks)
-    todo_tasks_ch = Channel{Int}(ch->foreach(ix->put!(ch, ix), 1:n_tasks), n_tasks)
-    max_parallel_threads = max_parallel > 0 ? max_parallel : 32
-    n_task_threads = min(max_parallel_threads, n_tasks)
-
-    results = Vector{}(undef, n_tasks)
-    function process_work()
-        while isready(todo_tasks_ch)
-            println("in while")
-            my_ix = -1
-            # need to lock the channel as it may become empty
-            # and "unready" in between the while-loop call
-            # and the call to take!
-            lock(todo_tasks_ch) do
-                my_ix = isready(todo_tasks_ch) ? take!(todo_tasks_ch) : -1
-            end
-            # if my_ix is still -1, the channel is empty and
-            # there's no more work to do
-            my_ix == -1 && break
-            ahs_json  = ahs_jsons[my_ix]
-            results[my_ix] = run(ahs_json, args)
+        Vij = get_Vij(atom_coordinates, N, interaction_R, C6)
+        protocol = parse_protocol(ahs_json, n_τ_steps)
+    
+        @info "Preparing initial ψ MPS"
+        s = siteinds("S=1/2", N; conserve_qns=false)
+    
+        # Initialize ψ to be a product state: Down state (Ground state)
+        ψ = MPS(s, n -> "Dn")
+        @info "Generating Trotterized circuit"
+        circuit = get_trotterized_circuit_2d(s, n_τ_steps, N, Vij, protocol)
+    
+        max_bond_dim = args["max-bond-dim"]
+        cutoff = args["cutoff"]
+        compute_truncation_error = args["compute-truncation-error"]
+    
+        @info "Starting MPS evolution"
+        res = @timed begin
+            density, err_array, ψ = compute_MPS_evolution(ψ, circuit, max_bond_dim, cutoff, compute_truncation_error=compute_truncation_error)
         end
-        return
-    end
-    tasks = Vector{}(undef, n_task_threads)
-    @sync for worker in 1:n_task_threads
-        println("spawn worker = $worker")
-        tasks[worker] = Threads.@spawn process_work()
-    end
-
-    # @sync @threads for worker in 1:n_task_threads
-    #     println("threads worker = $worker")
-    #     process_work()
-    # end
+        # summary_array = ["time: $(res.time)",
+        #                 "n_atoms: $N",
+        #                 "Trotter steps: $n_τ_steps",
+        #                 "interaction_R: $interaction_R",
+        #                 "MPS cutoff: $cutoff",
+        #                 "max_bond_dim: $max_bond_dim",
+        #                 "total truncation err: $(sum(err_array))"]
+        # summary_string = join(summary_array, ", ")
+        # write(joinpath(experiment_path, "summary.txt"), summary_string)
     
+        @info "Simulation complete. Elapsed time and memory used: $(res.time)."
+        @info "Number of atoms: $N, MPS cutoff: $cutoff, max_bond_dim: $max_bond_dim, Trotter steps: $n_τ_steps"
     
-    # # tasks don't return anything so we can wait rather than fetch
-    # wait.(tasks)
-    # # check to ensure all the results were in fact populated
-    # for r_ix in 1:n_tasks
-    #     @assert isassigned(results, r_ix)
-    # end
-    return results
-
-end 
-
+        # Bitstring samples
+        @info "Sampling from final MPS state"
+        samples = Matrix{Int}(undef, N, n_shots)
+        for shot in 1:n_shots
+            sample_i = sample!(ψ) # Sampling bitstrings from a final psi(T)
+            # iTensor MPS sample outputs values [1, 2] for 2-level system
+            # Converting [1,2] -> [0,1]
+            @views samples[:, shot] = [(2 - x) for x in sample_i]
+        end
+    
+        return samples
+    
+        # # Correlation matrix 
+        # correlator_zz = []
+    
+        # if args["compute-correlators"]
+        #     @info "Evaluating correlation function ..."
+        #     correlator_zz = 4 .* correlation_matrix(ψ, "Sz", "Sz") # renormalize to [-1, 1] range
+        # end    
+    
+        # # Energies at t=T
+        # energies = []
+        
+        # if args["compute-energies"]
+        #     @info "Evaluating energies at t=T ..."
+    
+        #     Δ_glob_ts = protocol[:global_detuning]
+        #     Δ_loc_ts = protocol[:local_detuning]
+        #     pattern = protocol[:pattern]
+        
+        #     energies = compute_energies(samples', Vij, Δ_glob_ts, Δ_loc_ts, pattern)
+        # end
+        
+    
+        # results = Dict(
+        #     "samples" => samples,
+        #     "density" => density,
+        #     "summary" => summary_array
+        # )
+    
+        # if args["compute-energies"]
+        #     results["energies"] = energies
+        # end
+    
+        # if args["compute-correlators"]
+        #     results["correlator_zz"] = correlator_zz
+        # end    
+    
+        # return results
+    end
+    
+    function run_batch(ahs_jsons, args; max_parallel=-1)
+        # println("in run_batch")
+        n_tasks = length(ahs_jsons)
+        println(n_tasks)
+        todo_tasks_ch = Channel{Int}(ch->foreach(ix->put!(ch, ix), 1:n_tasks), n_tasks)
+        max_parallel_threads = max_parallel > 0 ? max_parallel : 32
+        n_task_threads = min(max_parallel_threads, n_tasks)
+    
+        results = Vector{}(undef, n_tasks)
+        function process_work()
+            while isready(todo_tasks_ch)
+                println("in while")
+                my_ix = -1
+                # need to lock the channel as it may become empty
+                # and "unready" in between the while-loop call
+                # and the call to take!
+                lock(todo_tasks_ch) do
+                    my_ix = isready(todo_tasks_ch) ? take!(todo_tasks_ch) : -1
+                end
+                # if my_ix is still -1, the channel is empty and
+                # there's no more work to do
+                my_ix == -1 && break
+                ahs_json  = ahs_jsons[my_ix]
+                results[my_ix] = run(ahs_json, args)
+            end
+            return
+        end
+        tasks = Vector{}(undef, n_task_threads)
+        @sync for worker in 1:n_task_threads
+            println("spawn worker = $worker")
+            tasks[worker] = Threads.@spawn process_work()
+        end
+    
+        # @sync @threads for worker in 1:n_task_threads
+        #     println("threads worker = $worker")
+        #     process_work()
+        # end
+        
+        
+        # # tasks don't return anything so we can wait rather than fetch
+        # wait.(tasks)
+        # # check to ensure all the results were in fact populated
+        # for r_ix in 1:n_tasks
+        #     @assert isassigned(results, r_ix)
+        # end
+        return results
+    
+    end 
+end
 
 """
     save_results(experiment_path::String,
