@@ -67,10 +67,14 @@ function run_program(
         @views samples[:, shot] = [(2 - x) for x in sample_i]
     end
 
-    experiment_path = joinpath(split(program_path,"/")[1:end-1])
-    open(joinpath(experiment_path,"mps_samples.txt"), "w") do io
+    # experiment_path = joinpath(split(program_path,"/")[1:end-1])
+    # open(joinpath(experiment_path,"mps_samples.txt"), "w") do io
+    #     writedlm(io, samples)
+    # end
+
+    open("mps_samples.txt", "w") do io
         writedlm(io, samples)
-    end
+    end    
 end
 
 
