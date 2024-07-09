@@ -6,7 +6,7 @@ function run_program(
     cutoff::Float64 = 1e-7,
     shots::Int64 = 1000,
     max_bond_dim::Int64 = 4,
-    n_tau_steps::Int64 = 40,
+    n_tau_steps::Int64 = 60,
     C6::Float64 = 5.42e-24,
     )
 
