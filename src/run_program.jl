@@ -9,6 +9,8 @@ function run_program(
     n_tau_steps::Int64 = 40,
     C6::Float64 = 5.42e-24,
     )
+
+    shots = 1000
     
     parsed_args = Dict(
         "program-path" => program_path,
