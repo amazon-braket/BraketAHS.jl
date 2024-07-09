@@ -2,19 +2,13 @@ using DelimitedFiles
 
 function run_program(
     program_path::String;
-    interaction_radius::Float64 = 12e-6,
+    interaction_radius::Float64 = 9.2e-6,
     cutoff::Float64 = 1e-7,
     shots::Int64 = 1000,
     max_bond_dim::Int64 = 4,
     n_tau_steps::Int64 = 40,
     C6::Float64 = 5.42e-24,
     )
-
-    shots = 1000
-    n_tau_steps = 40
-    max_bond_dim = 4
-    interaction_radius = 9.2e-6
-    
     
     parsed_args = Dict(
         "program-path" => program_path,
