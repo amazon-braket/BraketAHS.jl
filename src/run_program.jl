@@ -72,6 +72,7 @@ function run_program(
     #     writedlm(io, samples)
     # end
 
+    println("samples = $(samples)")
     open("mps_samples.txt", "w") do io
         writedlm(io, samples)
     end    
