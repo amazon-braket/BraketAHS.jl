@@ -11,6 +11,11 @@ function run_program(
     )
 
     shots = 1000
+
+    
+    println("wtf julia")
+    println([shots, n_tau_steps, C6, interaction_radius, max_bond_dim])
+        
     
     parsed_args = Dict(
         "program-path" => program_path,
