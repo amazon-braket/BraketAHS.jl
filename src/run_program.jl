@@ -66,7 +66,8 @@ function run_program(
         sample_i = sample!(ψ) # Sampling bitstrings from a final psi(T)
         # iTensor MPS sample outputs values [1, 2] for 2-level system
         # Converting [1,2] -> [0,1]
-        @views samples[:, shot] = [(2 - x) for x in sample_i]
+        # @views samples[:, shot] = [(2 - x) for x in sample_i] # This seems to be wrong
+        @views samples[:, shot] = [abs(1 - x) for x in sample_i]
     end
 
     open("mps_samples.txt", "w") do io
