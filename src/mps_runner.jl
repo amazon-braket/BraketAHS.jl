@@ -65,6 +65,10 @@ function parse_commandline()
         "--generate-plots"
             help = "Generate plots after experiment is finished"
             action = :store_true
+        "--backend"
+            help = "Select device backend for running simulations (default: CPU). Values may be "
+            arg_type = String
+            default = "cpu"
     end
     return parse_args(s)
 end

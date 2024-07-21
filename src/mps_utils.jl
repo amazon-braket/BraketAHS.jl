@@ -9,6 +9,8 @@ using Missings
 using Random
 using JSON3
 
+using CUDA
+using cuTENSOR
 
 """
 Generate atom positions from the ahs program.
@@ -25,10 +27,10 @@ function get_Vij(atom_coordinates, N::Int, interaction_R::Float64, C6::Float64)
     for (i, Ri) in enumerate(atom_coordinates)
         for (j, Rj) in enumerate(atom_coordinates)
             # NN approximation (truncate van der Waals tail)
-            Rij = sqrt((Ri[1]-Rj[1])^2 + (Ri[2]-Rj[2])^2)
+            Rij = sqrt((Ri[1] - Rj[1])^2 + (Ri[2] - Rj[2])^2)
             # check if two atoms are close enough (but not zero)
             check_NN = 0 < Rij <= interaction_R
-            check_NN && (Vij[i, j] = C6/abs(Rij)^6)
+            check_NN && (Vij[i, j] = C6 / abs(Rij)^6)
         end
     end
     return Vij
@@ -36,11 +38,11 @@ end
 
 function piecewise_protocol(x, points, values)
     y = missing
-    (x<points[1] || x>points[end]) && throw(ArgumentError("Input parameter x ($x) must be between min ($(points[1])) and max ($(points[end])) points values"))
+    (x < points[1] || x > points[end]) && throw(ArgumentError("Input parameter x ($x) must be between min ($(points[1])) and max ($(points[end])) points values"))
     for (i, point) in enumerate(points[1:end-1])
         if x >= point && x <= points[i+1]
-            k = (values[i+1]-values[i])/(points[i+1]-point)
-            y = k*(x-point) + values[i]
+            k = (values[i+1] - values[i]) / (points[i+1] - point)
+            y = k * (x - point) + values[i]
         end
     end
     return y
@@ -48,7 +50,7 @@ end
 
 function parse_protocol(ahs_program, τ::Float64, n_τ_steps::Int)
     # Define piecewise functions (protocols)
-    time_steps = collect(0:(n_τ_steps-1)) ./ n_τ_steps 
+    time_steps = collect(0:(n_τ_steps-1)) ./ n_τ_steps
     total_time = n_τ_steps * τ
     time_points_Δ = ahs_program["hamiltonian"]["drivingFields"][1]["detuning"]["time_series"]["times"]
     values_Δ = ahs_program["hamiltonian"]["drivingFields"][1]["detuning"]["time_series"]["values"]
@@ -71,7 +73,7 @@ function parse_protocol(ahs_program, τ::Float64, n_τ_steps::Int)
     values_shift = parse.(Float64, values_shift)
 
     # Define piecewise protocols
-    t_vals = [i/n_τ_steps*total_time for i in 1:n_τ_steps]
+    t_vals = [i / n_τ_steps * total_time for i in 1:n_τ_steps]
     # Global detuning time series
     Δ_glob_ts = [piecewise_protocol(t, time_points_Δ, values_Δ) for t in t_vals]
     # Local detuning time series
@@ -79,16 +81,16 @@ function parse_protocol(ahs_program, τ::Float64, n_τ_steps::Int)
     # Rabi driving field
     Ω_ts = [piecewise_protocol(t, time_points_Ω, values_Ω) for t in t_vals]
 
-    @assert length(time_steps) == n_τ_steps 
-    @assert length(Ω_ts) == n_τ_steps 
-    @assert length(Δ_loc_ts) == n_τ_steps 
-    @assert length(Δ_glob_ts) == n_τ_steps 
+    @assert length(time_steps) == n_τ_steps
+    @assert length(Ω_ts) == n_τ_steps
+    @assert length(Δ_loc_ts) == n_τ_steps
+    @assert length(Δ_glob_ts) == n_τ_steps
 
     return (time_steps=time_steps,
-            rabi_driving=Ω_ts,
-            global_detuning=Δ_glob_ts,
-            local_detuning=Δ_loc_ts,
-            pattern=pattern)
+        rabi_driving=Ω_ts,
+        global_detuning=Δ_glob_ts,
+        local_detuning=Δ_loc_ts,
+        pattern=pattern)
 end
 
 function compute_energies(samples, Vij::Matrix{Float64}, Δ_glob_ts, Δ_loc_ts, pattern)
@@ -106,6 +108,14 @@ function compute_energies(samples, Vij::Matrix{Float64}, Δ_glob_ts, Δ_loc_ts, 
     return energies
 end
 
+function convert_itensor(x::ITensor, backend::String)::ITensor
+    if backend == "cuda"
+        return ITensor(x |> NDTensors.array |> cu, inds(x))
+    else
+        @info "default tensor"
+        return x
+    end
+end
 """
     get_trotterized_circuit_2d(sites, τ, n_steps, N, Vij::Matrix{Float64})
 
@@ -114,15 +124,15 @@ for a time step `τ` and `n_steps` total time steps, on `N` total atoms.
 `sites` defines the site indices in the MPS used to build the circuit.
 Returns a `Vector{Vector{iTensor}}` list of gates at each time step.
 """
-function get_trotterized_circuit_2d(sites, τ::Float64, n_steps::Int, N::Int, Vij::Matrix{Float64}, protocol)
+function get_trotterized_circuit_2d(sites, τ::Float64, n_steps::Int, N::Int, Vij::Matrix{Float64}, protocol, backend::String="cpu")
     circuit = Vector{Vector{ITensor}}(undef, n_steps)
     for i_τ in 1:n_steps
         two_site_gates = ITensor[]
         ## Two-site terms: Vij*n_i*n_j
         for j1 in 1:N, j2 in (j1+1):N
             if Vij[j1, j2] != 0
-                s1_op = (0.5*op("I", sites[j1]) + op("Sz", sites[j1]))
-                s2_op = (0.5*op("I", sites[j2]) + op("Sz", sites[j2]))
+                s1_op = (0.5 * op("I", sites[j1]) + op("Sz", sites[j1]))
+                s2_op = (0.5 * op("I", sites[j2]) + op("Sz", sites[j2]))
                 hj = Vij[j1, j2] * s1_op * s2_op
                 Gj = exp(-im * τ / 2 * hj)
                 push!(two_site_gates, Gj)
@@ -137,17 +147,17 @@ function get_trotterized_circuit_2d(sites, τ::Float64, n_steps::Int, N::Int, Vi
         end
 
         Δ_glob_ts = protocol[:global_detuning]
-        detuning_ops = [0.5*op("I", s) + op("Sz", s) for s in sites]
+        detuning_ops = [0.5 * op("I", s) + op("Sz", s) for s in sites]
         # Global Detuning: - Δ_glob_ts(t)*n_i
         global_detuning_gates = map(detuning_ops) do op
-            hj_Δ_glob = - Δ_glob_ts[i_τ] * op
+            hj_Δ_glob = -Δ_glob_ts[i_τ] * op
             Gj = exp(-im * τ / 2 * hj_Δ_glob)
             return Gj
         end
         Δ_loc_ts = protocol[:local_detuning]
         pattern = protocol[:pattern]
         # Local Detuning: - Δ_loc_ts(t) * pattern[i] * n_i
-        local_detuning_gates = map(zip(pattern, detuning_ops)) do (fill, op) 
+        local_detuning_gates = map(zip(pattern, detuning_ops)) do (fill, op)
             hj_Δ_loc = -Δ_loc_ts[i_τ] * fill * op
             Gj = exp(-im * τ / 2 * hj_Δ_loc)
             return Gj
@@ -155,6 +165,10 @@ function get_trotterized_circuit_2d(sites, τ::Float64, n_steps::Int, N::Int, Vi
         all_gates = vcat(two_site_gates, rabi_pulse_gates, global_detuning_gates, local_detuning_gates)
         # Include gates in reverse order too: (N,N-1),(N-1,N-2),...
         append!(all_gates, reverse(all_gates))
+        # Placed here because indexing into a ITensor does not seem doable in a reasonable way? e.g. circuit[1,1]::Vector{ITensor}
+        if backend != "cpu"
+            all_gates = map(x -> convert_itensor(x, backend), all_gates)
+        end
         circuit[i_τ] = all_gates
     end
     return circuit
@@ -169,7 +183,7 @@ Returns prepared experiment protocol `protocol` as a `NamedTuple` with keys
 `(:time_steps, :rabi_driving, :global_detuning, :local_detuning, :pattern)`.
 `Vij` is the generated inter-atomic potential, and `N` is the total number of atoms.
 """
-function parse_ahs_program(ahs_json, args::Dict{String, Any})
+function parse_ahs_program(ahs_json, args::Dict{String,Any})
     program_path = args["program-path"]
     experiment_path = args["experiment-path"]
     τ = args["tau"]
@@ -187,7 +201,7 @@ function parse_ahs_program(ahs_json, args::Dict{String, Any})
     else
         @info "Directory '$experiment_path' already exists."
     end
-    
+
     # Serialize the data to a JSON-formatted string, write the JSON string to the file
     json_str = JSON3.write(ahs_json)
     open(joinpath(experiment_path, "ahs_program.json"), "w") do file
@@ -229,11 +243,16 @@ truncation error at each time step
 (`0.` at all times if `compute_truncation_error` is `false`),
 and `ψ` after evolution.
 """
-function compute_MPS_evolution(ψ::MPS, circuit::Vector{Vector{ITensor}}, max_bond_dim::Int, cutoff::Float64; compute_truncation_error::Bool=false)
+function compute_MPS_evolution(ψ::MPS, circuit::Vector{Vector{ITensor}}, max_bond_dim::Int, cutoff::Float64; compute_truncation_error::Bool=false, backend::String)
     n_τ_steps = length(circuit)
     N = length(ψ)
     meas_array = Matrix{Float64}(undef, length(ψ), n_τ_steps)
     err_array = zeros(Float64, n_τ_steps)
+    if backend != "cpu"
+        meas_array = cu(meas_array)
+        err_array = cu(err_array)
+        ψ = cu(ψ)
+    end
     @info "Applying Trotter gates"
     for i_τ in 1:n_τ_steps
         # Save density expectation numbers
@@ -242,14 +261,14 @@ function compute_MPS_evolution(ψ::MPS, circuit::Vector{Vector{ITensor}}, max_bo
         # Evolution step: psi update
         ψ_prev = ψ
         ψ = ITensors.apply(circuit[i_τ], ψ; cutoff=cutoff, maxdim=max_bond_dim)
-        normalize!(ψ)
+        ψ = normalize(ψ)
         if compute_truncation_error
             ψ_exact = ITensors.apply(circuit[i_τ], ψ_prev; cutoff=1e-16)
             err_array[i_τ] = 1.0 - abs(inner(ψ_exact, ψ))
-        end            
-        @info "Step: $i_τ, current MPS bond dimension is $(maxlinkdim(ψ))"         
+        end
+        @info "Step: $i_τ, current MPS bond dimension is $(maxlinkdim(ψ))"
     end
-    return meas_array, err_array, ψ    
+    return meas_array, err_array, ψ
 end
 
 function run(ahs_json, args)
@@ -259,7 +278,7 @@ function run(ahs_json, args)
     n_τ_steps = args["n-tau-steps"]
     C6 = args["C6"]
     interaction_R = args["interaction-radius"]
-    n_shots = args["shots"]    
+    n_shots = args["shots"]
     Vij, protocol, N = parse_ahs_program(ahs_json, args)
 
     @info "Preparing initial ψ MPS"
@@ -268,7 +287,7 @@ function run(ahs_json, args)
     # Initialize ψ to be a product state: Down state (Ground state)
     ψ = MPS(s, n -> "Dn")
     @info "Generating Trotterized circuit"
-    circuit = get_trotterized_circuit_2d(s, τ, n_τ_steps, N, Vij, protocol)
+    circuit = get_trotterized_circuit_2d(s, τ, n_τ_steps, N, Vij, protocol, args["backend"])
 
     max_bond_dim = args["max-bond-dim"]
     cutoff = args["cutoff"]
@@ -276,15 +295,15 @@ function run(ahs_json, args)
 
     @info "Starting MPS evolution"
     res = @timed begin
-        density, err_array, ψ = compute_MPS_evolution(ψ, circuit, max_bond_dim, cutoff, compute_truncation_error=compute_truncation_error)
+        density, err_array, ψ = compute_MPS_evolution(ψ, circuit, max_bond_dim, cutoff, compute_truncation_error=compute_truncation_error, backend=args["backend"])
     end
     summary_array = ["time: $(res.time)",
-                    "n_atoms: $N",
-                    "Trotter steps: $n_τ_steps",
-                    "interaction_R: $interaction_R",
-                    "MPS cutoff: $cutoff",
-                    "max_bond_dim: $max_bond_dim",
-                    "total truncation err: $(sum(err_array))"]
+        "n_atoms: $N",
+        "Trotter steps: $n_τ_steps",
+        "interaction_R: $interaction_R",
+        "MPS cutoff: $cutoff",
+        "max_bond_dim: $max_bond_dim",
+        "total truncation err: $(sum(err_array))"]
     summary_string = join(summary_array, ", ")
     write(joinpath(experiment_path, "summary.txt"), summary_string)
 
@@ -307,20 +326,20 @@ function run(ahs_json, args)
     if args["compute-correlators"]
         @info "Evaluating correlation function ..."
         correlator_zz = 4 .* correlation_matrix(ψ, "Sz", "Sz") # renormalize to [-1, 1] range
-    end    
+    end
 
     # Energies at t=T
     energies = []
-    
+
     if args["compute-energies"]
         @info "Evaluating energies at t=T ..."
 
         Δ_glob_ts = protocol[:global_detuning]
         Δ_loc_ts = protocol[:local_detuning]
         pattern = protocol[:pattern]
-    
+
         energies = compute_energies(samples', Vij, Δ_glob_ts, Δ_loc_ts, pattern)
-    end    
+    end
 
     results = Dict(
         "samples" => samples,
@@ -334,7 +353,7 @@ function run(ahs_json, args)
 
     if args["compute-correlators"]
         results["correlator_zz"] = correlator_zz
-    end    
+    end
 
     return results
 end
@@ -362,7 +381,7 @@ time series.
 function save_results(results, experiment_path::String)
     @info "Saving results"
     # # Samples
-    samples_file_path = joinpath(experiment_path, "mps_samples.csv") 
+    samples_file_path = joinpath(experiment_path, "mps_samples.csv")
     CSV.write(samples_file_path, DataFrame(results["samples"]', :auto), writeheader=false)
     @info "Samples are saved to $samples_file_path"
 
@@ -386,5 +405,5 @@ function save_results(results, experiment_path::String)
         CSV.write(path, DataFrame(results["density"]', :auto), writeheader=false)
         @info "Density evolution is saved to $path"
     end
-        
+
 end
