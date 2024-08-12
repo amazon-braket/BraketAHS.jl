@@ -44,10 +44,10 @@ function parse_commandline()
         "--compute-truncation-error"
             help = "whether to compute the error induced by truncation at each step (computationally expensive)"
             action = :store_true # default without this flag is false
-        "--tau"
-            help = "time evolution step size in seconds"
-            arg_type = Float64
-            default = 0.01e-6
+        # "--tau"
+        #     help = "time evolution step size in seconds"
+        #     arg_type = Float64
+        #     default = 0.01e-6
         "--n-tau-steps"
             help = "number of time evolution steps to simulate"
             arg_type = Int
