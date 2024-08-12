@@ -55,10 +55,26 @@ function parse_protocol(ahs_program, τ::Float64, n_τ_steps::Int)
 
     time_points_Ω = ahs_program["hamiltonian"]["drivingFields"][1]["amplitude"]["time_series"]["times"]
     values_Ω = ahs_program["hamiltonian"]["drivingFields"][1]["amplitude"]["time_series"]["values"]
-
-    pattern = ahs_program["hamiltonian"]["shiftingFields"][1]["magnitude"]["pattern"]
-    time_points_shift = ahs_program["hamiltonian"]["shiftingFields"][1]["magnitude"]["time_series"]["times"]
-    values_shift = ahs_program["hamiltonian"]["shiftingFields"][1]["magnitude"]["time_series"]["values"]
+        
+    n_atoms = length(ahs_program["setup"]["ahs_register"]["sites"])
+    # Supporting both localDetuning and shiftingFields naming conventions
+    loc_detuning_key = ""
+    if "shiftingFields" ∈ keys(ahs_program["hamiltonian"])
+        loc_detuning_key = "shiftingFields"
+    elseif "localDetuning" ∈ keys(ahs_program["hamiltonian"])
+        loc_detuning_key = "localDetuning"
+    end
+    
+    # Check if local detuning or shifting fields were found, otherwise assign zeros
+    if !isempty(loc_detuning_key)
+        values_local_detuning = ahs_program["hamiltonian"][loc_detuning_key][1]["magnitude"]["time_series"]["values"]
+        time_points_loc_detuning = ahs_program["hamiltonian"][loc_detuning_key][1]["magnitude"]["time_series"]["times"]
+        pattern = ahs_program["hamiltonian"][loc_detuning_key][1]["magnitude"]["pattern"]
+    else
+        time_points_loc_detuning = ["0", "4e-6"]
+        values_local_detuning = ["0", "0"]
+        pattern = ["0" for _ in 1:n_atoms]
+    end
 
     # Convert strings to floats [parsing Braket AHS program]
     time_points_Δ = parse.(Float64, time_points_Δ)
@@ -67,15 +83,15 @@ function parse_protocol(ahs_program, τ::Float64, n_τ_steps::Int)
     values_Ω = parse.(Float64, values_Ω)
 
     pattern = parse.(Float64, pattern)
-    time_points_shift = parse.(Float64, time_points_shift)
-    values_shift = parse.(Float64, values_shift)
+    time_points_loc_detuning = parse.(Float64, time_points_loc_detuning)
+    values_local_detuning = parse.(Float64, values_local_detuning)
 
     # Define piecewise protocols
     t_vals = [i/n_τ_steps*total_time for i in 1:n_τ_steps]
     # Global detuning time series
     Δ_glob_ts = [piecewise_protocol(t, time_points_Δ, values_Δ) for t in t_vals]
     # Local detuning time series
-    Δ_loc_ts = [piecewise_protocol(t, time_points_shift, values_shift) for t in t_vals]
+    Δ_loc_ts = [piecewise_protocol(t, time_points_loc_detuning, values_local_detuning) for t in t_vals]
     # Rabi driving field
     Ω_ts = [piecewise_protocol(t, time_points_Ω, values_Ω) for t in t_vals]
 
