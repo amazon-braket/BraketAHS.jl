@@ -57,16 +57,16 @@ function parse_protocol(ahs_program, τ::Float64, n_τ_steps::Int)
     values_Ω = ahs_program["hamiltonian"]["drivingFields"][1]["amplitude"]["time_series"]["values"]
         
     n_atoms = length(ahs_program["setup"]["ahs_register"]["sites"])
+
     # Supporting both localDetuning and shiftingFields naming conventions
-    loc_detuning_key = ""
-    if "shiftingFields" ∈ keys(ahs_program["hamiltonian"])
-        loc_detuning_key = "shiftingFields"
+    loc_detuning_key = if "shiftingFields" ∈ keys(ahs_program["hamiltonian"])
+        "shiftingFields"
     elseif "localDetuning" ∈ keys(ahs_program["hamiltonian"])
-        loc_detuning_key = "localDetuning"
+        "localDetuning"
     end
     
     # Check if local detuning or shifting fields were found, otherwise assign zeros
-    if !isempty(loc_detuning_key)
+    if !(loc_detuning_key === nothing)
         values_local_detuning = ahs_program["hamiltonian"][loc_detuning_key][1]["magnitude"]["time_series"]["values"]
         time_points_loc_detuning = ahs_program["hamiltonian"][loc_detuning_key][1]["magnitude"]["time_series"]["times"]
         pattern = ahs_program["hamiltonian"][loc_detuning_key][1]["magnitude"]["pattern"]
