@@ -22,15 +22,29 @@ function get_atom_coordinates(ahs_json)
     return atom_coords, filling
 end
 
+# function get_Vij(atom_coordinates, N::Int, interaction_R::Float64, C6::Float64)
+#     Vij = zeros(Float64, N, N)
+#     for (i, Ri) in enumerate(atom_coordinates)
+#         for (j, Rj) in enumerate(atom_coordinates)
+#             # NN approximation (truncate van der Waals tail)
+#             Rij = sqrt((Ri[1]-Rj[1])^2 + (Ri[2]-Rj[2])^2)
+#             # check if two atoms are close enough (but not zero)
+#             check_NN = 0 < Rij <= interaction_R
+#             check_NN && (Vij[i, j] = C6/abs(Rij)^6)
+#         end
+#     end
+#     return Vij
+# end
+
 function get_Vij(atom_coordinates, N::Int, interaction_R::Float64, C6::Float64)
     Vij = zeros(Float64, N, N)
-    for (i, Ri) in enumerate(atom_coordinates)
-        for (j, Rj) in enumerate(atom_coordinates)
-            # NN approximation (truncate van der Waals tail)
-            Rij = sqrt((Ri[1]-Rj[1])^2 + (Ri[2]-Rj[2])^2)
-            # check if two atoms are close enough (but not zero)
-            check_NN = 0 < Rij <= interaction_R
-            check_NN && (Vij[i, j] = C6/abs(Rij)^6)
+    for i in 1 : N, j in (i+1) : N
+        Ri, Rj = atom_coordinates[i], atom_coordinates[j]
+        Rij = sqrt((Ri[1]-Rj[1])^2 + (Ri[2]-Rj[2])^2)
+
+        if (interaction_R == 0) || Rij <= interaction_R
+            Vij[i, j] = C6/abs(Rij)^6
+            Vij[j, i] = C6/abs(Rij)^6
         end
     end
     return Vij

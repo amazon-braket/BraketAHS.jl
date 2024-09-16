@@ -6,8 +6,9 @@ function run_program(
     cutoff::Float64 = 1e-7,
     shots::Int64 = 1000,
     max_bond_dim::Int64 = 4,
-    n_tau_steps::Int64 = 60,
+    n_tau_steps::Int64 = 100,
     C6::Float64 = 5.42e-24,
+    solver:: String = "tebd" # or "tdvp"
     )
 
     shots = 1000
@@ -20,6 +21,7 @@ function run_program(
         "max-bond-dim" => max_bond_dim,
         "n-tau-steps" => n_tau_steps,
         "C6" => C6,
+        "solver" => solver
     )
     
     @info "Parsed input arguments"
@@ -43,20 +45,25 @@ function run_program(
     Vij = get_Vij(atom_coordinates, N, interaction_R, C6)
     protocol = parse_protocol(ahs_json, n_τ_steps)    
 
-    @info "Preparing initial ψ MPS"
-    s = siteinds("S=1/2", N; conserve_qns=false)
     
-    # Initialize ψ to be a product state: Down state (Ground state)
-    ψ = MPS(s, n -> "Dn")
-    @info "Generating Trotterized circuit"
-    circuit = get_trotterized_circuit_2d(s, n_τ_steps, N, Vij, protocol)
-    
-    max_bond_dim = parsed_args["max-bond-dim"]
-    cutoff = parsed_args["cutoff"]
+    if solver == "tebd"
+        @info "Preparing initial ψ MPS"
+        s = siteinds("S=1/2", N; conserve_qns=false)
 
-    @info "Starting MPS evolution"
-    res = @timed begin
-        density, err_array, ψ = compute_MPS_evolution(ψ, circuit, max_bond_dim, cutoff, compute_truncation_error=false)
+        # Initialize ψ to be a product state: Down state (Ground state)
+        ψ = MPS(s, n -> "Dn")
+        @info "Generating Trotterized circuit"
+        circuit = get_trotterized_circuit_2d(s, n_τ_steps, N, Vij, protocol)
+        
+        max_bond_dim = parsed_args["max-bond-dim"]
+        cutoff = parsed_args["cutoff"]
+
+        @info "Starting MPS evolution"
+        res = @timed begin
+            density, err_array, ψ = compute_MPS_evolution(ψ, circuit, max_bond_dim, cutoff, compute_truncation_error=false)
+        end
+    elseif solver == "tdvp"
+        ψ = compute_MPS_evolution_tdvp(protocol, Vij, N, n_τ_steps, max_bond_dim, cutoff)
     end
     
     # Bitstring samples
@@ -72,5 +79,5 @@ function run_program(
 
     open("mps_samples.txt", "w") do io
         writedlm(io, samples)
-    end    
+    end
 end

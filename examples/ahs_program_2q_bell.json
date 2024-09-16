@@ -1,0 +1,93 @@
+{
+    "setup": {
+        "ahs_register": {
+            "sites": [
+                [
+                    "0.0",
+                    "0.0"
+                ],
+                [
+                    "6.7e-6",
+                    "0.0"
+                ]
+            ],
+            "filling": [
+                1,
+                1
+            ]
+        }
+    },
+    "braketSchemaHeader": {
+        "name": "braket.ir.ahs.program",
+        "version": "1"
+    },
+    "hamiltonian": {
+        "shiftingFields": [
+            {
+                "magnitude": {
+                    "pattern": [
+                        "0.0",
+                        "0.0"
+                    ],
+                    "time_series": {
+                        "values": [
+                            "0.0",
+                            "0.0"
+                        ],
+                        "times": [
+                            "0.0",
+                            "1.905975613341255e-7"
+                        ]
+                    }
+                }
+            }
+        ],
+        "drivingFields": [
+            {
+                "phase": {
+                    "pattern": "uniform",
+                    "time_series": {
+                        "values": [
+                            "0.0",
+                            "0.0"
+                        ],
+                        "times": [
+                            "0.0",
+                            "1.905975613341255e-7"
+                        ]
+                    }
+                },
+                "detuning": {
+                    "pattern": "uniform",
+                    "time_series": {
+                        "values": [
+                            "0.0",
+                            "0.0"
+                        ],
+                        "times": [
+                            "0.0",
+                            "1.905975613341255e-7"
+                        ]
+                    }
+                },
+                "amplitude": {
+                    "pattern": "uniform",
+                    "time_series": {
+                        "values": [
+                            "0.0",
+                            "15800000",
+                            "15800000",
+                            "0.0"
+                        ],
+                        "times": [
+                            "0.0",
+                            "5e-8",
+                            "1.405975613341255e-7",
+                            "1.905975613341255e-7"
+                        ]
+                    }
+                }
+            }
+        ]
+    }
+}
