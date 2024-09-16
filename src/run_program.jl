@@ -11,6 +11,8 @@ function run_program(
     solver:: String = "tebd" # or "tdvp"
     )
 
+    @assert solver ∈ ["tebd", "tdvp"]
+
     shots = 1000
 
     parsed_args = Dict(
