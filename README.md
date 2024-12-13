@@ -30,14 +30,14 @@ julia --project=. -e 'using Pkg; Pkg.instantiate()'
 ### Running MPS-based simulation
 1. To run the Braket-AHS program saved as a .json file run:
 ```
-julia src/mps_runner.jl --program-path=<path_to_ahs.json>
+julia --project=. src/mps_runner.jl --program-path=<path_to_ahs.json>
 ```
 
 In order to generate .json configuration file there are 2 options:
 
 1.A Generate .json using Braket.jl interface provided in `srs/ahs_program.jl`.
 ```
-julia src/ahs_program.jl
+julia --project=. src/ahs_program.jl
 ```
 The output .json file will be saved in `examples/ahs_program.json`.
 
