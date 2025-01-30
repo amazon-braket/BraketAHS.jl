@@ -17,12 +17,15 @@ using Braket: AtomArrangement, AtomArrangementItem, TimeSeries, DrivingField, Pa
 using DataStructures, Statistics, Plots
 
 begin
-	a = 5.5e-6	
+	a = 6.8e-6
+	L = 11  # number of atoms per line
 	register = AtomArrangement()
-	push!(register, AtomArrangementItem((0., 0.) .* a))
-	push!(register, AtomArrangementItem((1., 0.) .* a))
-	push!(register, AtomArrangementItem((0., 1.) .* a))
-	push!(register, AtomArrangementItem((1., 1.) .* a))
+	
+	for i in 0:(L-1)
+		for j in 0:(L-1)
+			push!(register, AtomArrangementItem((Float64(i), Float64(j)) .* a))
+		end
+	end
 end
 
 
@@ -69,11 +72,11 @@ json_str = JSON3.write(ir(ahs_program))
 json_obj = JSON3.read(json_str)
 
 # Define the file path
-file_path = joinpath(dirname(@__DIR__), "examples", "ahs_program_default.json")
-
+file_path = joinpath(dirname(@__DIR__), "adiabatic_prep", "N_$(length(register)).json")
+# file_path = joinpath(dirname(@__DIR__), "examples", "ahs_program_default.json")
 
 # Write the JSON object to a file
 open(file_path, "w") do file
-    JSON3.write(file, json_obj)  # The '4' here is for pretty printing with an indent of 4 spaces
+    JSON3.write(file, json_obj)
 end
 

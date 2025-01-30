@@ -11,6 +11,6 @@ export parse_ahs_program, save_results
 
 include("mps_utils.jl")
 include("plotter.jl")
-include("ahs_program.jl")
+include("adiabatic_program.jl")
 
 end # module

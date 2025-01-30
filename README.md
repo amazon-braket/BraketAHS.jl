@@ -32,6 +32,12 @@ julia --project=. -e 'using Pkg; Pkg.instantiate()'
 ```
 julia src/mps_runner.jl --program-path=<path_to_ahs.json>
 ```
+or if already in the REPL:
+```
+empty!(ARGS)  # Clear any existing args
+push!(ARGS, "--program-path", "ahs_program_12q.json")
+include("src/mps_runner.jl")
+```
 
 In order to generate .json configuration file there are 2 options:
 
@@ -89,3 +95,7 @@ To run visualization script run:
 julia src/plotter.jl <path_to_experiment_results>
 ```
 It will generate plots from the .csv files saved in <path_to_experiment_results>.
+
+empty!(ARGS)  # Clear any existing args
+push!(ARGS, "--program-path", "ahs_program_12q.json")
+include("src/mps_runner.jl")

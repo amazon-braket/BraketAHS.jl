@@ -8,6 +8,7 @@ using Base.Filesystem
 using Missings
 using Random
 using JSON3
+using ITensors.HDF5 
 
 
 """
@@ -46,7 +47,7 @@ function piecewise_protocol(x, points, values)
     return y
 end
 
-function parse_protocol(ahs_program, τ::Float64, n_τ_steps::Int)
+function parse_protocol__mine(ahs_program, τ, n_τ_steps)
     # Define piecewise functions (protocols)
     time_steps = collect(0:(n_τ_steps-1)) ./ n_τ_steps 
     total_time = n_τ_steps * τ
@@ -144,6 +145,8 @@ function get_trotterized_circuit_2d(sites, τ::Float64, n_steps::Int, N::Int, Vi
                 push!(two_site_gates, Gj)
             end
         end
+        @info "current protocol: $protocol"
+        @info "with rabi driving: $rabi_driving"
         Ω_ts = protocol[:rabi_driving]
         # Single-site terms: Ω_ts(t)*σX_i/2
         rabi_pulse_gates = map(1:N) do j
@@ -185,7 +188,7 @@ Returns prepared experiment protocol `protocol` as a `NamedTuple` with keys
 `(:time_steps, :rabi_driving, :global_detuning, :local_detuning, :pattern)`.
 `Vij` is the generated inter-atomic potential, and `N` is the total number of atoms.
 """
-function parse_ahs_program(ahs_json, args::Dict{String, Any})
+function parse_ahs_program(ahs_json, args::Dict{String, Any}, file_name::String)
     program_path = args["program-path"]
     experiment_path = args["experiment-path"]
     τ = args["tau"]
@@ -203,10 +206,9 @@ function parse_ahs_program(ahs_json, args::Dict{String, Any})
     else
         @info "Directory '$experiment_path' already exists."
     end
-    
     # Serialize the data to a JSON-formatted string, write the JSON string to the file
     json_str = JSON3.write(ahs_json)
-    open(joinpath(experiment_path, "ahs_program.json"), "w") do file
+    open(joinpath(experiment_path, "$file_name.json"), "w") do file
         write(file, json_str)
     end
 
@@ -215,10 +217,9 @@ function parse_ahs_program(ahs_json, args::Dict{String, Any})
 
     array_2d_coords = hcat([t[1] for t in atom_coordinates], [t[2] for t in atom_coordinates])
     CSV.write(joinpath(experiment_path, "atom_coordinates.csv"), DataFrame(array_2d_coords', :auto))
-    @debug "Atoms in atom array: $atom_coordinates"
 
     Vij = get_Vij(atom_coordinates, N, interaction_R, C6)
-    protocol = parse_protocol(ahs_json, τ, n_τ_steps)
+    protocol = parse_protocol__mine(ahs_json, τ, n_τ_steps)
     return Vij, protocol, N
 end
 
@@ -250,11 +251,16 @@ function compute_MPS_evolution(ψ::MPS, circuit::Vector{Vector{ITensor}}, max_bo
     N = length(ψ)
     meas_array = Matrix{Float64}(undef, length(ψ), n_τ_steps)
     err_array = zeros(Float64, n_τ_steps)
+    correlator_zz_timeseries = Vector{Matrix{Float64}}(undef, n_τ_steps)
     @info "Applying Trotter gates"
     for i_τ in 1:n_τ_steps
         # Save density expectation numbers
         Sz = expect(ψ, "Sz"; sites=1:N)
         meas_array[:, i_τ] = 0.5 .+ Sz
+        
+        # Measure correlators at each time step
+        correlator_zz_timeseries[i_τ] = 4 .* real.(correlation_matrix(ψ, "Sz", "Sz"))
+        
         # Evolution step: psi update
         ψ_prev = ψ
         ψ = ITensors.apply(circuit[i_τ], ψ; cutoff=cutoff, maxdim=max_bond_dim)
@@ -265,18 +271,18 @@ function compute_MPS_evolution(ψ::MPS, circuit::Vector{Vector{ITensor}}, max_bo
         end            
         @info "Step: $i_τ, current MPS bond dimension is $(maxlinkdim(ψ))"         
     end
-    return meas_array, err_array, ψ    
+    return meas_array, err_array, correlator_zz_timeseries, ψ    
 end
 
-function run(ahs_json, args)
-
+function run(ahs_json, args, file_name::String="N_$(args["number-of-atoms"])")
     experiment_path = args["experiment-path"]
     τ = args["tau"]
     n_τ_steps = args["n-tau-steps"]
     C6 = args["C6"]
     interaction_R = args["interaction-radius"]
-    n_shots = args["shots"]    
-    Vij, protocol, N = parse_ahs_program(ahs_json, args)
+    n_shots = args["shots"]   
+    @info "Getting into AHS program (RABI)"
+    Vij, protocol, N = parse_ahs_program(ahs_json, args, file_name)
 
     @info "Preparing initial ψ MPS"
     s = siteinds("S=1/2", N; conserve_qns=false)
@@ -292,7 +298,7 @@ function run(ahs_json, args)
 
     @info "Starting MPS evolution"
     res = @timed begin
-        density, err_array, ψ = compute_MPS_evolution(ψ, circuit, max_bond_dim, cutoff, compute_truncation_error=compute_truncation_error)
+        density, err_array, correlator_zz_timeseries, ψ = compute_MPS_evolution(ψ, circuit, max_bond_dim, cutoff, compute_truncation_error=compute_truncation_error)
     end
     summary_array = ["time: $(res.time)",
                     "n_atoms: $N",
@@ -321,8 +327,8 @@ function run(ahs_json, args)
     correlator_zz = []
 
     if args["compute-correlators"]
-        @info "Evaluating correlation function ..."
-        correlator_zz = 4 .* correlation_matrix(ψ, "Sz", "Sz") # renormalize to [-1, 1] range
+        @info "Using correlators from time evolution..."
+        correlator_zz = correlator_zz_timeseries[end] # Store final correlator for backward compatibility
     end    
 
     # Energies at t=T
@@ -341,7 +347,8 @@ function run(ahs_json, args)
     results = Dict(
         "samples" => samples,
         "density" => density,
-        "summary" => summary_array
+        "summary" => summary_array,
+        "final_mps" => ψ
     )
 
     if args["compute-energies"]
@@ -350,6 +357,7 @@ function run(ahs_json, args)
 
     if args["compute-correlators"]
         results["correlator_zz"] = correlator_zz
+        results["correlator_zz_timeseries"] = correlator_zz_timeseries
     end    
 
     return results
@@ -377,8 +385,17 @@ time series.
 
 function save_results(results, experiment_path::String)
     @info "Saving results"
-    # # Samples
-    samples_file_path = joinpath(experiment_path, "mps_samples.csv") 
+    # Save MPS state
+    if haskey(results, "final_mps")
+        mps_path = joinpath(experiment_path, "final_mps.h5")
+        h5open(mps_path, "w") do fw
+            write(fw, "psi", results["final_mps"])
+        end
+        @info "Final MPS state saved to $mps_path"
+    end
+
+    # Samples
+    samples_file_path = joinpath(experiment_path, "bitstrings.csv") 
     CSV.write(samples_file_path, DataFrame(results["samples"]', :auto), writeheader=false)
     @info "Samples are saved to $samples_file_path"
 
@@ -391,16 +408,29 @@ function save_results(results, experiment_path::String)
 
     # Correlators
     if haskey(results, "correlator_zz")
+        # Save final correlator for backward compatibility
         path = joinpath(experiment_path, "correlator_zz.csv")
         CSV.write(path, DataFrame(real.(results["correlator_zz"]'), :auto), writeheader=false)
-        @info "Correlators are saved to $path"
+        @info "Final correlators saved to $path"
+
+        n_timesteps = length(results["correlator_zz_timeseries"])
+        n_atoms = size(results["correlator_zz_timeseries"][1], 1)
+        
+        # Reshape the 3D data (timesteps × atoms × atoms) into a 2D matrix for CSV
+        correlator_data = zeros(n_timesteps, n_atoms * n_atoms)
+        for t in 1:n_timesteps
+            correlator_data[t, :] = vec(results["correlator_zz_timeseries"][t])
+        end
+        
+        path = joinpath(experiment_path, "correlator_zz_timeseries.csv")
+        CSV.write(path, DataFrame(correlator_data, :auto), writeheader=false)
+        @info "Correlator time series saved to $path"
     end
 
     # Densities
     if haskey(results, "density")
-        path = joinpath(experiment_path, "mps_density.csv")
+        path = joinpath(experiment_path, "density.csv")
         CSV.write(path, DataFrame(results["density"]', :auto), writeheader=false)
         @info "Density evolution is saved to $path"
     end
-        
 end

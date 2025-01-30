@@ -13,22 +13,17 @@ using JSON3
 include("mps_utils.jl")
 include("plotter.jl")
 
-
 function parse_commandline()
     s = ArgParseSettings()
     @add_arg_table! s begin
-        "--program-path"
-            help = "the path to the AHS program JSON file"
-            arg_type = String
-            default = joinpath(dirname(@__DIR__), "examples", "ahs_program.json")
+        "--number-of-atoms"
+            help = "number of atoms in the program"
+            arg_type = Int
+            default = 16
         "--interaction-radius"
             help = "the interaction radius in meters"
             arg_type = Float64
             default = 7e-6
-        "--experiment-path"
-            help = "the directory in which to store all experiment data"
-            arg_type = String
-            default = joinpath(dirname(@__DIR__), "examples", "experiment_braket")
         "--cutoff"
             help = "cutoff for SVD values in MPS evolution"
             arg_type = Float64
@@ -40,7 +35,7 @@ function parse_commandline()
         "--max-bond-dim"
             help = "maximum bond dimension for MPS"
             arg_type = Int
-            default = 16
+            default = 100
         "--compute-truncation-error"
             help = "whether to compute the error induced by truncation at each step (computationally expensive)"
             action = :store_true # default without this flag is false
@@ -58,17 +53,19 @@ function parse_commandline()
             default = 5.42e-24
         "--compute-correlators"
             help = "Compute ZZ correlators at the end of the evolution (t=T)"
-            action = :store_true
+            action = :store_false
         "--compute-energies"
             help = "Compute energies from samples at the end of the evolution (t=T)"
-            action = :store_true            
+            action = :store_false
         "--generate-plots"
             help = "Generate plots after experiment is finished"
-            action = :store_true
+            action = :store_false
+        "--compute-density"
+            help = "Compute and store density at each timestep"
+            action = :store_false
     end
     return parse_args(s)
 end
-
 
 args = parse_commandline()
         
@@ -77,20 +74,20 @@ for (k,v) in args
     @info "\t$k: $v"
 end
 
-experiment_path = args["experiment-path"]
-program_path    = args["program-path"]
+args["experiment-path"] = "adiabatic_prep/results_$(args["number-of-atoms"])"
+args["program-path"] = "adiabatic_prep/N_$(args["number-of-atoms"]).json"
 
-@info "JSON file to read: $program_path"
-ahs_json = JSON3.read(read(program_path, String), Dict{String, Any})
+@info "JSON file to read: $(args["program-path"])"
+ahs_json = JSON3.read(read(args["program-path"], String), Dict{String, Any})
 
 results = run(ahs_json, args)
 
 @info "Saving results"
-save_results(results, experiment_path)
+save_results(results, args["experiment-path"])
 
 @info "Generating plots"
 if args["generate-plots"]
-    @info "Plotting results from $experiment_path"
-    plot_all(experiment_path)
+    @info "Plotting results from $(args["experiment-path"])"
+    plot_all(args["experiment-path"])
     @info "Plotting complete."
 end
